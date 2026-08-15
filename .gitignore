@@ -1,0 +1,10 @@
+# Sensitive environment variables
+.envrc
+
+# Blizzard game data — not for redistribution
+data/
+
+# Temporary files
+*.bak
+*.old
+*.tmp

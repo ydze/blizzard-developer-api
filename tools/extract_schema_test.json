@@ -1,0 +1,32 @@
+[
+  {
+    "arr1": [
+      "hello, world!"
+    ]
+  },
+  {
+    "arr1": null,
+    "arr2": [
+      {
+        "num": 2,
+        "str": "hello, world!",
+        "obj": {
+          "num": 200,
+          "bool": false
+        }
+      }
+    ]
+  },
+  "hello, world!",
+  1,
+  10,
+  [
+    100,
+    1000
+  ],
+  [
+    "hello, world!",
+    null
+  ],
+  null
+]
