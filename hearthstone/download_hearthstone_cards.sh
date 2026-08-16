@@ -10,14 +10,44 @@ for CMD in curl jq; do
     fi
 done
 
-# ─── Configuration ────────────────────────────────────────────────────────────
-# CSPROJ="${CSPROJ_PATH:?Please set CSPROJ_PATH}"
-# SECRETS=$(dotnet user-secrets list --project "${CSPROJ}")
-# CLIENT_ID=$(echo "${SECRETS}" | grep "BlizzardDeveloperAPI:ClientId" | cut -d'=' -f2 | xargs)
-# CLIENT_SECRET=$(echo "${SECRETS}" | grep "BlizzardDeveloperAPI:ClientSecret" | cut -d'=' -f2 | xargs)
+# ─── Progress Bar ─────────────────────────────────────────────────────────────
+progress() {
+    local CURRENT=$1
+    local TOTAL=$2
+    local WIDTH=50
+    local PERCENT=$(( CURRENT * 100 / TOTAL ))
+    local FILLED=$(( CURRENT * WIDTH / TOTAL ))
+    local EMPTY=$(( WIDTH - FILLED ))
 
-CLIENT_ID="${BLIZZARD_CLIENT_ID:?Please set BLIZZARD_CLIENT_ID}"
-CLIENT_SECRET="${BLIZZARD_CLIENT_SECRET:?Please set BLIZZARD_CLIENT_SECRET}"
+    printf "\r[%${FILLED}s%${EMPTY}s] %d%% (%d/%d)" \
+        "$(printf '#%.0s' $(seq 1 $FILLED))" \
+        "" \
+        "$PERCENT" \
+        "$CURRENT" \
+        "$TOTAL"
+}
+
+# --- Fetch a single Hearthstone cards page ------------------------------------
+get_page() {
+    local ACCESS_TOKEN=$1
+    local API_BASE=$2
+    local LOCALE=$3
+    local PAGE=$4
+    local PAGE_SIZE=$5
+
+    local CURL_CMD=(
+        curl
+        --silent --fail
+        --header "Authorization: Bearer ${ACCESS_TOKEN}"
+        "${API_BASE}/hearthstone/cards?locale=${LOCALE}&pageSize=${PAGE_SIZE}&page=${PAGE}&collectible=0,1"
+    )
+
+    until "${CURL_CMD[@]}"; do
+        sleep 5
+    done
+}
+
+# ─── Configuration ────────────────────────────────────────────────────────────
 REGION="${BLIZZARD_REGION:-us}"
 PAGE_SIZE=400
 OUTPUT_FILE="hearthstone_cards.json"
@@ -31,20 +61,12 @@ else
 fi
 
 # ─── Service URLs ─────────────────────────────────────────────────────────────
-AUTH_URL="https://${REGION}.battle.net/oauth/token"
 API_BASE="https://${REGION}.api.blizzard.com"
 
 # ─── Acquire access token ─────────────────────────────────────────────────────
 echo "Acquiring access token..."
 
-AUTH_RESPONSE=$(curl --silent --fail --data "grant_type=client_credentials" --user "${CLIENT_ID}:${CLIENT_SECRET}" "${AUTH_URL}")
-
-ACCESS_TOKEN=$(echo "${AUTH_RESPONSE}" | jq --raw-output '.access_token')
-
-if [[ -z "${ACCESS_TOKEN}" || "${ACCESS_TOKEN}" == "null" ]]; then
-    echo "Failed to acquire access token." >&2
-    exit 1
-fi
+ACCESS_TOKEN=$(bash "$(dirname "$0")/acquire_access_token.sh")
 
 echo "Access token acquired."
 
@@ -57,12 +79,7 @@ for LOCALE in "${LOCALES[@]}"; do
     # ─── Download first page and get total page count ────────────────────────-
     echo "Downloading page 1 for locale ${LOCALE}..."
 
-    until FIRST_PAGE=$(curl --silent --fail \
-                            --header "Authorization: Bearer ${ACCESS_TOKEN}" \
-                            "${API_BASE}/hearthstone/cards?locale=${LOCALE}&pageSize=${PAGE_SIZE}&page=1&collectible=0,1"); do
-        echo "Download failed, retrying in 5 seconds..." >&2
-        sleep 5
-    done
+    FIRST_PAGE=$(get_page "${ACCESS_TOKEN}" "${API_BASE}" "${LOCALE}" 1 "${PAGE_SIZE}")
 
     echo "${FIRST_PAGE}" | jq '.cards' > "${TMP_DIR}/${LOCALE}_page_1.json"
 
@@ -75,21 +92,20 @@ for LOCALE in "${LOCALES[@]}"; do
 
     echo "Total pages: ${PAGE_COUNT}"
 
-    # ─── Download all pages and merge cards into one file ─────────────────────
+    echo "Downloading remaining pages..."
+
+    progress 1 $PAGE_COUNT
+
+    # ─── Download remaining pages and merge cards into one file ───────────────
     for (( PAGE=2; PAGE<=PAGE_COUNT; PAGE++ )); do
-        echo "Downloading page ${PAGE} of ${PAGE_COUNT} for locale ${LOCALE}..."
-
-        until curl --silent --fail \
-                   --header "Authorization: Bearer ${ACCESS_TOKEN}" \
-                   "${API_BASE}/hearthstone/cards?locale=${LOCALE}&pageSize=${PAGE_SIZE}&page=${PAGE}&collectible=0,1" \
-              | jq '.cards' > "${TMP_DIR}/${LOCALE}_page_${PAGE}.json"; do
-
-            echo "Download failed, retrying in 5 seconds..." >&2
-            sleep 5
-        done
+        get_page "${ACCESS_TOKEN}" "${API_BASE}" "${LOCALE}" "${PAGE}" "${PAGE_SIZE}" \
+        | jq '.cards' > "${TMP_DIR}/${LOCALE}_page_${PAGE}.json"
+        progress $PAGE $PAGE_COUNT
     done
 
-    OUTPUT_DIR="data/${LOCALE}" && mkdir -p "${OUTPUT_DIR}"
+    echo
+
+    OUTPUT_DIR="$(dirname "$0")/data/${LOCALE}" && mkdir -p "${OUTPUT_DIR}"
     SAVED_FILE="${OUTPUT_DIR}/${OUTPUT_FILE}"
 
     # ─── Merge all pages into a single JSON array ─────────────────────────────

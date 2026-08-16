@@ -11,13 +11,6 @@ for CMD in curl jq; do
 done
 
 # ─── Configuration ────────────────────────────────────────────────────────────
-# CSPROJ="${CSPROJ_PATH:?Please set CSPROJ_PATH}"
-# SECRETS=$(dotnet user-secrets list --project "${CSPROJ}")
-# CLIENT_ID=$(echo "${SECRETS}" | grep "BlizzardDeveloperAPI:ClientId" | cut -d'=' -f2 | xargs)
-# CLIENT_SECRET=$(echo "${SECRETS}" | grep "BlizzardDeveloperAPI:ClientSecret" | cut -d'=' -f2 | xargs)
-
-CLIENT_ID="${BLIZZARD_CLIENT_ID:?Please set BLIZZARD_CLIENT_ID}"
-CLIENT_SECRET="${BLIZZARD_CLIENT_SECRET:?Please set BLIZZARD_CLIENT_SECRET}"
 REGION="${BLIZZARD_REGION:-us}"
 OUTPUT_FILE="metadata.json"
 
@@ -30,27 +23,19 @@ else
 fi
 
 # ─── Service URLs ─────────────────────────────────────────────────────────────
-AUTH_URL="https://${REGION}.battle.net/oauth/token"
 API_BASE="https://${REGION}.api.blizzard.com"
 
 # ─── Acquire access token ─────────────────────────────────────────────────────
 echo "Acquiring access token..."
 
-AUTH_RESPONSE=$(curl --silent --fail --data "grant_type=client_credentials" --user "${CLIENT_ID}:${CLIENT_SECRET}" "${AUTH_URL}")
-
-ACCESS_TOKEN=$(echo "${AUTH_RESPONSE}" | jq --raw-output '.access_token')
-
-if [[ -z "${ACCESS_TOKEN}" || "${ACCESS_TOKEN}" == "null" ]]; then
-    echo "Failed to acquire access token." >&2
-    exit 1
-fi
+ACCESS_TOKEN=$(bash "$(dirname "$0")/acquire_access_token.sh")
 
 echo "Access token acquired."
 
 # ─── Download Hearthstone Metadata --------------------------------------------
 for LOCALE in "${LOCALES[@]}"; do
 
-    OUTPUT_DIR="data/${LOCALE}" && mkdir -p "${OUTPUT_DIR}"
+    OUTPUT_DIR="$(dirname "$0")/data/${LOCALE}" && mkdir -p "${OUTPUT_DIR}"
     SAVED_FILE="${OUTPUT_DIR}/${OUTPUT_FILE}"
 
     until curl --silent --fail \
@@ -58,7 +43,6 @@ for LOCALE in "${LOCALES[@]}"; do
                "${API_BASE}/hearthstone/metadata?locale=${LOCALE}" \
           | jq '.' > "${SAVED_FILE}"; do
 
-        echo "Download failed, retrying in 5 seconds..." >&2
         sleep 5
     done
 

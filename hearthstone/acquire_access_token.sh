@@ -1,0 +1,1 @@
+../auth/acquire_access_token.sh
