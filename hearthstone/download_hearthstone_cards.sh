@@ -34,12 +34,14 @@ get_page() {
     local LOCALE=$3
     local PAGE=$4
     local PAGE_SIZE=$5
+    local GAMEMODE=$6
+    local COLLECTIBLE=$7
 
     local CURL_CMD=(
         curl
         --silent --fail
         --header "Authorization: Bearer ${ACCESS_TOKEN}"
-        "${API_BASE}/hearthstone/cards?locale=${LOCALE}&pageSize=${PAGE_SIZE}&page=${PAGE}&collectible=0,1"
+        "${API_BASE}/hearthstone/cards?locale=${LOCALE}&page=${PAGE}&pageSize=${PAGE_SIZE}&gameMode=${GAMEMODE}&collectible=${COLLECTIBLE}"
     )
 
     until "${CURL_CMD[@]}"; do
@@ -60,6 +62,23 @@ else
     LOCALES=("${BLIZZARD_LOCALE}")
 fi
 
+# ─── Available game modes ─────────────────────────────────────────────────────
+if [[ -z "${BLIZZARD_GAMEMODE:-}" ]]; then
+    echo "BLIZZARD_GAMEMODE not set, downloading all gamemodes..." >&2
+    GAMEMODES=("constructed" "battlegrounds" "arena" "duels" "standard" "classic" "mercenaries")
+else
+    GAMEMODES=("${BLIZZARD_GAMEMODE}")
+fi
+
+# ─── Collectible filter ───────────────────────────────────────────────────────
+case "${BLIZZARD_COLLECTIBLE:-all}" in
+    yes) COLLECTIBLE="1" ;;
+     no) COLLECTIBLE="0" ;;
+    all) COLLECTIBLE="0,1" ;;
+      *) echo "BLIZZARD_COLLECTIBLE: '${BLIZZARD_COLLECTIBLE}' is invalid. Use yes, no, or all." >&2
+         exit 1 ;;
+esac
+
 # ─── Service URLs ─────────────────────────────────────────────────────────────
 API_BASE="https://${REGION}.api.blizzard.com"
 
@@ -76,40 +95,49 @@ trap 'rm -rf "${TMP_DIR}"' EXIT
 
 for LOCALE in "${LOCALES[@]}"; do
 
-    # ─── Download first page and get total page count ────────────────────────-
-    echo "Downloading page 1 for locale ${LOCALE}..."
+    for GAMEMODE in "${GAMEMODES[@]}"; do
 
-    FIRST_PAGE=$(get_page "${ACCESS_TOKEN}" "${API_BASE}" "${LOCALE}" 1 "${PAGE_SIZE}")
+        # ─── Download first page and get total page count ────────────────────-
+        echo "Downloading page 1 for gamemode ${GAMEMODE}, locale ${LOCALE}..."
 
-    echo "${FIRST_PAGE}" | jq '.cards' > "${TMP_DIR}/${LOCALE}_page_1.json"
+        FIRST_PAGE=$(get_page "${ACCESS_TOKEN}" "${API_BASE}" "${LOCALE}" 1 "${PAGE_SIZE}" "${GAMEMODE}" "${COLLECTIBLE}")
 
-    PAGE_COUNT=$(echo "${FIRST_PAGE}" | jq '.pageCount')
+        PAGE_COUNT=$(echo "${FIRST_PAGE}" | jq '.pageCount')
 
-    if [[ -z "${PAGE_COUNT}" || "${PAGE_COUNT}" == "null" ]]; then
-        echo "Failed to retrieve page count." >&2
-        exit 1
-    fi
+        if [[ -z "${PAGE_COUNT}" || "${PAGE_COUNT}" == "null" ]]; then
+            echo "Failed to retrieve page count." >&2
+            exit 1
+        fi
 
-    echo "Total pages: ${PAGE_COUNT}"
+        if [[ "${PAGE_COUNT}" == "0" ]]; then
+            echo "No cards found for gamemode ${GAMEMODE}, locale ${LOCALE}, skipping..." >&2
+            continue
+        else
+            echo "Total pages: ${PAGE_COUNT}"
+        fi
 
-    echo "Downloading remaining pages..."
+        echo "Downloading remaining pages..."
 
-    progress 1 $PAGE_COUNT
+        echo "${FIRST_PAGE}" | jq '.cards' > "${TMP_DIR}/${LOCALE}_${GAMEMODE}_page_1.json"
 
-    # ─── Download remaining pages and merge cards into one file ───────────────
-    for (( PAGE=2; PAGE<=PAGE_COUNT; PAGE++ )); do
-        get_page "${ACCESS_TOKEN}" "${API_BASE}" "${LOCALE}" "${PAGE}" "${PAGE_SIZE}" \
-        | jq '.cards' > "${TMP_DIR}/${LOCALE}_page_${PAGE}.json"
-        progress $PAGE $PAGE_COUNT
+        progress 1 $PAGE_COUNT
+
+        # ─── Download remaining pages and merge cards into one file ───────────
+        for (( PAGE=2; PAGE<=PAGE_COUNT; PAGE++ )); do
+            get_page "${ACCESS_TOKEN}" "${API_BASE}" "${LOCALE}" "${PAGE}" "${PAGE_SIZE}" "${GAMEMODE}" "${COLLECTIBLE}" \
+            | jq '.cards' > "${TMP_DIR}/${LOCALE}_${GAMEMODE}_page_${PAGE}.json"
+            progress $PAGE $PAGE_COUNT
+        done
+
+        echo
+
     done
-
-    echo
 
     OUTPUT_DIR="$(dirname "$0")/data/${LOCALE}" && mkdir -p "${OUTPUT_DIR}"
     SAVED_FILE="${OUTPUT_DIR}/${OUTPUT_FILE}"
 
     # ─── Merge all pages into a single JSON array ─────────────────────────────
-    jq --slurp 'add' "${TMP_DIR}"/${LOCALE}_page_*.json > "${SAVED_FILE}"
+    jq --slurp 'add' "${TMP_DIR}"/${LOCALE}_*_page_*.json > "${SAVED_FILE}"
 
     CARD_COUNT=$(jq 'length' "${SAVED_FILE}")
     echo "Saved ${SAVED_FILE} (${CARD_COUNT} cards)."
