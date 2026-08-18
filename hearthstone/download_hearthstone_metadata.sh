@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
-for CMD in curl jq; do
+for CMD in curl jq parallel; do
     if ! command -v "${CMD}" &> /dev/null; then
         echo "Required command '${CMD}' is not installed." >&2
         exit 1
@@ -33,18 +33,26 @@ ACCESS_TOKEN=$(bash "$(dirname "$0")/acquire_access_token.sh")
 echo "Access token acquired."
 
 # ─── Download Hearthstone Metadata --------------------------------------------
-for LOCALE in "${LOCALES[@]}"; do
+get_metadata() {
+    local LOCALE=$1
 
-    OUTPUT_DIR="$(dirname "$0")/data/${LOCALE}" && mkdir -p "${OUTPUT_DIR}"
-    SAVED_FILE="${OUTPUT_DIR}/${OUTPUT_FILE}"
+    local OUTPUT_DIR="${BASE_DIR}/data/${LOCALE}"
+    local SAVED_FILE="${OUTPUT_DIR}/${OUTPUT_FILE}"
 
-    until curl --silent --fail \
-               --header "Authorization: Bearer ${ACCESS_TOKEN}" \
-               "${API_BASE}/hearthstone/metadata?locale=${LOCALE}" \
-          | jq '.' > "${SAVED_FILE}"; do
+    mkdir -p "${OUTPUT_DIR}"
 
-        sleep 5
-    done
+    local GET_CMD=(
+        curl
+        --silent --fail
+        --header "Authorization: Bearer ${ACCESS_TOKEN}"
+        "${API_BASE}/hearthstone/metadata?locale=${LOCALE}"
+    )
+    until "${GET_CMD[@]}" | jq '.' > "${SAVED_FILE}"; do sleep 5; done
 
     echo "Saved ${SAVED_FILE}."
-done
+}
+export -f get_metadata
+
+export ACCESS_TOKEN API_BASE BASE_DIR=$(dirname "$0") OUTPUT_FILE
+
+parallel -j "${#LOCALES[@]}" get_metadata ::: "${LOCALES[@]}"

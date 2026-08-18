@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
-for CMD in curl jq; do
+for CMD in curl jq parallel; do
     if ! command -v "${CMD}" &> /dev/null; then
         echo "Required command '${CMD}' is not installed." >&2
         exit 1
@@ -25,28 +25,6 @@ progress() {
         "$PERCENT" \
         "$CURRENT" \
         "$TOTAL"
-}
-
-# --- Fetch a single Hearthstone cards page ------------------------------------
-get_page() {
-    local ACCESS_TOKEN=$1
-    local API_BASE=$2
-    local LOCALE=$3
-    local PAGE=$4
-    local PAGE_SIZE=$5
-    local GAMEMODE=$6
-    local COLLECTIBLE=$7
-
-    local CURL_CMD=(
-        curl
-        --silent --fail
-        --header "Authorization: Bearer ${ACCESS_TOKEN}"
-        "${API_BASE}/hearthstone/cards?locale=${LOCALE}&page=${PAGE}&pageSize=${PAGE_SIZE}&gameMode=${GAMEMODE}&collectible=${COLLECTIBLE}"
-    )
-
-    until "${CURL_CMD[@]}"; do
-        sleep 5
-    done
 }
 
 # ─── Configuration ────────────────────────────────────────────────────────────
@@ -93,6 +71,35 @@ echo "Access token acquired."
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
+# --- Fetch a single Hearthstone cards page ------------------------------------
+get_page() {
+    local LOCALE=$1
+    local PAGE=$2
+    local GAMEMODE=$3
+
+    local CURL_CMD=(
+        curl
+        --silent --fail
+        --header "Authorization: Bearer ${ACCESS_TOKEN}"
+        "${API_BASE}/hearthstone/cards?locale=${LOCALE}&page=${PAGE}&pageSize=${PAGE_SIZE}&gameMode=${GAMEMODE}&collectible=${COLLECTIBLE}"
+    )
+    until "${CURL_CMD[@]}"; do sleep 5; done
+}
+export -f get_page
+
+save_page() {
+    local LOCALE=$1
+    local PAGE=$2
+    local GAMEMODE=$3
+
+    get_page "${LOCALE}" "${PAGE}" "${GAMEMODE}" \
+    | jq '.cards' > "${TMP_DIR}/${LOCALE}_${GAMEMODE}_page_${PAGE}.json"
+}
+export -f save_page
+
+export ACCESS_TOKEN API_BASE PAGE_SIZE COLLECTIBLE TMP_DIR
+
+# --- Hearthstone cards download loop ------------------------------------------
 for LOCALE in "${LOCALES[@]}"; do
 
     for GAMEMODE in "${GAMEMODES[@]}"; do
@@ -100,7 +107,7 @@ for LOCALE in "${LOCALES[@]}"; do
         # ─── Download first page and get total page count ────────────────────-
         echo "Downloading page 1 for gamemode ${GAMEMODE}, locale ${LOCALE}..."
 
-        FIRST_PAGE=$(get_page "${ACCESS_TOKEN}" "${API_BASE}" "${LOCALE}" 1 "${PAGE_SIZE}" "${GAMEMODE}" "${COLLECTIBLE}")
+        FIRST_PAGE=$(get_page "${LOCALE}" 1 "${GAMEMODE}")
 
         PAGE_COUNT=$(echo "${FIRST_PAGE}" | jq '.pageCount')
 
@@ -122,15 +129,21 @@ for LOCALE in "${LOCALES[@]}"; do
 
         progress 1 $PAGE_COUNT
 
-        # ─── Download remaining pages and merge cards into one file ───────────
-        for (( PAGE=2; PAGE<=PAGE_COUNT; PAGE++ )); do
-            get_page "${ACCESS_TOKEN}" "${API_BASE}" "${LOCALE}" "${PAGE}" "${PAGE_SIZE}" "${GAMEMODE}" "${COLLECTIBLE}" \
-            | jq '.cards' > "${TMP_DIR}/${LOCALE}_${GAMEMODE}_page_${PAGE}.json"
-            progress $PAGE $PAGE_COUNT
+        # ─── Download remaining pages in parallel ───────────------------------
+        parallel -j "${PAGE_COUNT}" save_page "${LOCALE}" {} "${GAMEMODE}" ::: $(seq 2 "${PAGE_COUNT}") &
+
+        PARALLEL_PID=$!
+
+        # ─── Track progress while pages download ──────────────────────────────
+        while kill -0 "${PARALLEL_PID}" 2>/dev/null; do
+            COMPLETED=$(ls "${TMP_DIR}"/${LOCALE}_${GAMEMODE}_page_*.json 2>/dev/null | wc -l)
+            progress "${COMPLETED}" "${PAGE_COUNT}"
+            sleep 0.2
         done
 
-        echo
+        wait "${PARALLEL_PID}"
 
+        echo
     done
 
     OUTPUT_DIR="$(dirname "$0")/data/${LOCALE}" && mkdir -p "${OUTPUT_DIR}"
@@ -141,4 +154,5 @@ for LOCALE in "${LOCALES[@]}"; do
 
     CARD_COUNT=$(jq 'length' "${SAVED_FILE}")
     echo "Saved ${SAVED_FILE} (${CARD_COUNT} cards)."
+    echo
 done

@@ -25,7 +25,7 @@ for json_file in "${TESTS_DIR}"/*.json; do
         continue
     fi
 
-    actual=$(JSON_FILE="${json_file}" "${SCRIPT}" 2>/dev/null)
+    actual=$("${SCRIPT}" "${json_file}" 2>/dev/null)
 
     if diff <(echo "${actual}") "${expected_file}"; then
         echo -e "${GREEN}✓ ${test_name}${RESET}"
