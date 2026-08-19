@@ -16,7 +16,7 @@ OUTPUT_FILE="metadata.json"
 
 # ─── Available locales ────────────────────────────────────────────────────────
 if [[ -z "${BLIZZARD_LOCALE:-}" ]]; then
-    echo "BLIZZARD_LOCALE not set, downloading all locales..." >&2
+    echo "BLIZZARD_LOCALE not set, downloading all locales..."
     LOCALES=("en_US" "es_MX" "pt_BR" "de_DE" "en_GB" "es_ES" "fr_FR" "it_IT" "pl_PL" "ru_RU" "ja_JP" "ko_KR" "th_TH" "zh_TW" "zh_CN")
 else
     LOCALES=("${BLIZZARD_LOCALE}")

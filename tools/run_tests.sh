@@ -36,5 +36,4 @@ for json_file in "${TESTS_DIR}"/*.json; do
     fi
 done
 
-echo
-echo "Results: ${PASS} passed, ${FAIL} failed, ${SKIP} skipped."
+echo -e "\nResults: ${PASS} passed, ${FAIL} failed, ${SKIP} skipped."

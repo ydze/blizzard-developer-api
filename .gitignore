@@ -2,6 +2,7 @@
 .envrc
 
 # Blizzard game data — not for redistribution
+assets/
 data/
 
 # Temporary files

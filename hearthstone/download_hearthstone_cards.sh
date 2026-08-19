@@ -34,7 +34,7 @@ OUTPUT_FILE="hearthstone_cards.json"
 
 # ─── Available locales ────────────────────────────────────────────────────────
 if [[ -z "${BLIZZARD_LOCALE:-}" ]]; then
-    echo "BLIZZARD_LOCALE not set, downloading all locales..." >&2
+    echo "BLIZZARD_LOCALE not set, downloading all locales..."
     LOCALES=("en_US" "es_MX" "pt_BR" "de_DE" "en_GB" "es_ES" "fr_FR" "it_IT" "pl_PL" "ru_RU" "ja_JP" "ko_KR" "th_TH" "zh_TW" "zh_CN")
 else
     LOCALES=("${BLIZZARD_LOCALE}")
@@ -42,7 +42,7 @@ fi
 
 # ─── Available game modes ─────────────────────────────────────────────────────
 if [[ -z "${BLIZZARD_GAMEMODE:-}" ]]; then
-    echo "BLIZZARD_GAMEMODE not set, downloading all gamemodes..." >&2
+    echo "BLIZZARD_GAMEMODE not set, downloading all gamemodes..."
     GAMEMODES=("constructed" "battlegrounds" "arena" "duels" "standard" "classic" "mercenaries")
 else
     GAMEMODES=("${BLIZZARD_GAMEMODE}")
@@ -117,7 +117,7 @@ for LOCALE in "${LOCALES[@]}"; do
         fi
 
         if [[ "${PAGE_COUNT}" == "0" ]]; then
-            echo "No cards found for gamemode ${GAMEMODE}, locale ${LOCALE}, skipping..." >&2
+            echo "No cards found for gamemode ${GAMEMODE}, locale ${LOCALE}, skipping..."
             continue
         else
             echo "Total pages: ${PAGE_COUNT}"
@@ -141,9 +141,7 @@ for LOCALE in "${LOCALES[@]}"; do
             sleep 0.2
         done
 
-        wait "${PARALLEL_PID}"
-
-        echo
+        wait "${PARALLEL_PID}" && echo
     done
 
     OUTPUT_DIR="$(dirname "$0")/data/${LOCALE}" && mkdir -p "${OUTPUT_DIR}"
@@ -153,6 +151,5 @@ for LOCALE in "${LOCALES[@]}"; do
     jq --slurp 'add' "${TMP_DIR}"/${LOCALE}_*_page_*.json > "${SAVED_FILE}"
 
     CARD_COUNT=$(jq 'length' "${SAVED_FILE}")
-    echo "Saved ${SAVED_FILE} (${CARD_COUNT} cards)."
-    echo
+    echo -e "Saved ${SAVED_FILE} (${CARD_COUNT} cards).\n"
 done
