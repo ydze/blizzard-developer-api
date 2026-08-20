@@ -70,13 +70,6 @@ def describe:
     type
   end;
 
-def build_schema:
-  if length == 0 then
-    []
-  else
-    [ .[] | describe ] | merge
-  end;
-
 def indent(n): reduce range(n) as $i (""; . + "  ");
 
 def format:
@@ -105,8 +98,12 @@ def format:
 
   ) | [ .[] | . + if $nullable then "?" else "" end ] | join(",\n\($curr_indent)");
 
-if $debug then
-  [ .[] ] | build_schema
+if type == "array" then
+  [ .[] | describe ] | merge
+elif type == "object" then
+  [ . | describe ] | merge[0]
 else
-  { depth: 0, data: [ .[] ] | build_schema } | format
+  . | describe
 end
+
+# { depth: 0, data: [ .[] ] | build_schema } | format

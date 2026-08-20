@@ -16,4 +16,10 @@ fi
 
 echo "Validating: ${JSON_FILE}..."
 
-jq 'empty' ${JSON_FILE} && echo -e "${GREEN}✓ JSON file is valid.${RESET}" || echo -e "${RED}✗ JSON file is invalid.${RESET}"
+if jq 'empty' "${JSON_FILE}" 2>/dev/null; then
+    echo -e "${GREEN}✓ JSON file is valid.${RESET}"
+    exit 0
+else
+    echo -e "${RED}✗ JSON file is invalid.${RESET}" >&2
+    exit 1
+fi

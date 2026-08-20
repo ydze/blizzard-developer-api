@@ -1,0 +1,11 @@
+{
+  "arr": [
+    {
+      "num": null
+    },
+    {
+      "num": 9000,
+      "str": "hello, world!"
+    }
+  ]
+}

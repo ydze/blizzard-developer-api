@@ -1,0 +1,1 @@
+../validate_json.sh
