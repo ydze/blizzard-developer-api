@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-FORMAT="raw"
+FORMAT="default"
 VALIDATE=false
 
 while getopts "f:v" opt; do
@@ -29,4 +29,4 @@ fi
 
 SCRIPT_FILE="$(dirname "$0")/extract_schema.jq"
 
-jq -f "${SCRIPT_FILE}" --arg format "$FORMAT" "${JSON_FILE}" #--raw-output
+jq -f "${SCRIPT_FILE}" --arg format "$FORMAT" "${JSON_FILE}" --raw-output

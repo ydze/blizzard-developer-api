@@ -75,25 +75,50 @@ def indent(n): reduce range(n) as $i (""; . + "  ");
 def format:
   ( .depth ) as $curr_lvl |
   ( .depth + 1 ) as $next_lvl |
+  ( .depth + 2 ) as $deep_lvl |
   ( indent($curr_lvl) ) as $curr_indent |
   ( indent($next_lvl) ) as $next_indent |
+  ( indent($deep_lvl) ) as $deep_indent |
 
   ( [ .data[] | select(type == "string" and . != "null") ] ) as $sca_types |
   ( [ .data[] | select(type == "array") ] ) as $arr_types |
   ( [ .data[] | select(type == "object" and has("props")) ] ) as $obj_types |
 
-  ( any(.data[]; . == "null") ) as $nullable |
+  ( ( .data | length ) > 1 and any(.data[]; . == "null") ) as $nullable |
+
+  ( if ( .data | length ) == 1 and .data[0] == "null" then ["null"] else $sca_types end ) as $sca_types |
 
   ( [ $sca_types[] ]
 
-  + [ $arr_types[] | { depth: $next_lvl, data: . } | format | "[\n\($next_indent)\(.)\n\($curr_indent)]" ]
+  + [ $arr_types[]
+      | if length == 0 then
+          "[]"
+        else
+          ( map(select(. != "null")) | ( length == 1 and ( .[0] | type == "string" ) ) ) as $single
+          | { depth: $next_lvl, data: . }
+          | format
+          | if $single then
+              "[ \(.) ]"
+            else
+              "[\n\($next_indent)\(.)\n\($curr_indent)]"
+            end
+        end
+    ]
 
   + [ $obj_types[]
-      | [ .props[]
-          | "\($next_indent)\(.propname): \(.proptype | { depth: $next_lvl, data: . } | format)\(if .nullable then "?" else "" end)"
-        ]
-        | join(",\n")
-        | "{\n\(.)\n\($curr_indent)}"
+      | if ( .props | length ) == 0 then
+          "{}"
+        else
+          [ .props[]
+            | ( .proptype | map(select(. != "null")) | length > 1 ) as $many
+            | ( if .nullable then "?" else "" end ) as $null_mark
+            | ( if $many then $deep_lvl else $next_lvl end ) as $lvl
+            | ( if $many then "\n\($deep_indent)" else "" end ) as $ind
+            | "\($next_indent)\(.propname): \( { depth: $lvl, data: .proptype } | format | "\($ind)\(.)\($null_mark)" )"
+          ]
+          | join(",\n")
+          | "{\n\(.)\n\($curr_indent)}"
+        end
     ]
 
   ) | [ .[] | . + if $nullable then "?" else "" end ] | join(",\n\($curr_indent)");
@@ -105,5 +130,10 @@ elif type == "object" then
 else
   . | describe
 end
-
-# { depth: 0, data: [ .[] ] | build_schema } | format
+| if $format == "default" then
+    { depth: 0, data: [ . ] } | format
+  elif $format == "raw" then
+    .
+  else
+    empty
+  end
