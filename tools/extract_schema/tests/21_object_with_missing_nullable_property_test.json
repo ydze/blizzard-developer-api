@@ -1,0 +1,11 @@
+{
+  "arr": [
+    {
+      "str": "hello, world!"
+    },
+    {
+      "str": null
+    },
+    {}
+  ]
+}

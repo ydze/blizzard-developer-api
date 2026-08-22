@@ -1,0 +1,8 @@
+[
+  [
+    {
+      num: number,
+      str: string?
+    }
+  ]
+]

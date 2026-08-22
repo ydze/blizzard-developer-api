@@ -21,7 +21,6 @@ def merge:
       else
         # Step 1: capture the $total number of described objects.
         ( $obj_desc | length ) as $total |
-
         [
           # Step 2: group object's properties by property name.
           [ $obj_desc[] | .props[] ]
@@ -111,7 +110,7 @@ def format:
         else
           [ .props[]
             | ( .proptype | map(select(. != "null")) | length > 1 ) as $many
-            | ( if .nullable then "?" else "" end ) as $null_mark
+            | ( if .nullable and ( any(.proptype[]; . == "null") | not ) then "?" else "" end ) as $null_mark
             | ( if $many then $deep_lvl else $next_lvl end ) as $lvl
             | ( if $many then "\n\($deep_indent)" else "" end ) as $ind
             | "\($next_indent)\(.propname): \( { depth: $lvl, data: .proptype } | format | "\($ind)\(.)\($null_mark)" )"

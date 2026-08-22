@@ -1,0 +1,8 @@
+{
+  arr: [
+    {
+      num: number?,
+      str: string?
+    }
+  ]
+}
