@@ -1,0 +1,12 @@
+{
+  "name": "Hearthstone",
+  "ver": 1,
+  "locales": [
+    "en_US",
+    "ua_UA"
+  ],
+  "author": {
+    "name": "Blizzard Entertainment",
+    "website": "https://www.blizzard.com"
+  }
+}

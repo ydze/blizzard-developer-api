@@ -2,12 +2,28 @@
 
 set -euo pipefail
 
+tput civis
+trap 'tput cnorm' EXIT INT TERM
+
 # ─── Dependencies ─────────────────────────────────────────────────────────────
 for CMD in curl jq parallel; do
     if ! command -v "${CMD}" &> /dev/null; then
         echo "Required command '${CMD}' is not installed." >&2
         exit 1
     fi
+done
+
+SHOW_FAILED=false
+
+OPTS=$(getopt -o "" --long show-failed -- "$@")
+eval set -- "${OPTS}"
+
+while true; do
+    case "$1" in
+        --show-failed) SHOW_FAILED=true; shift ;;
+        --) shift; break ;;
+         *) echo "Usage: $0 [--show-failed]" >&2; exit 1 ;;
+    esac
 done
 
 # ─── Progress Bar ─────────────────────────────────────────────────────────────
@@ -18,20 +34,17 @@ progress() {
     local PERCENT=$(( CURRENT * 100 / TOTAL ))
     local FILLED=$(( CURRENT * WIDTH / TOTAL ))
     local EMPTY=$(( WIDTH - FILLED ))
+    local MSG="[$(printf '#%.0s' $(seq 1 $FILLED))$(printf ' %.0s' $(seq 1 $EMPTY))] ${PERCENT}% (${CURRENT}/${TOTAL})"
+    local PAD=$(( 80 - ${#MSG} ))
 
-    printf "\r[%${FILLED}s%${EMPTY}s] %d%% (%d/%d)" \
-        "$(printf '#%.0s' $(seq 1 $FILLED))" \
-        "" \
-        "$PERCENT" \
-        "$CURRENT" \
-        "$TOTAL"
+    printf "\r%s%${PAD}s" "${MSG}" ""
 }
 
 # ─── Configuration ────────────────────────────────────────────────────────────
-DATA_DIR="$(dirname "$0")/data"
+DATA_DIR="${PROJECT_DIR}/data/hearthstone"
 DATA_FILE="hearthstone_cards.json"
-IMAGES_DIR="$(dirname "$0")/assets/card_images"
-PARALLEL_JOBS=10
+IMAGES_DIR="${PROJECT_DIR}/assets/hearthstone/card_images"
+PARALLEL_JOBS=100
 
 # ─── Available locales ────────────────────────────────────────────────────────
 if [[ -z "${BLIZZARD_LOCALE:-}" ]]; then
@@ -46,10 +59,24 @@ save_image() {
     local CARDS_DIR=$1
     local URL=$2
     local SAVED_FILE="${CARDS_DIR}/$(basename "${URL}")"
+    local ATTEMPTS=0
+    local MAX_ATTEMPTS=5
 
-    until curl --silent --fail --output "${SAVED_FILE}" "${URL}"; do sleep 5; done
+    until curl --silent --fail --output "${SAVED_FILE}" "${URL}"; do
+        ATTEMPTS=$(( ATTEMPTS + 1 ))
+        if [[ "${ATTEMPTS}" -ge "${MAX_ATTEMPTS}" ]]; then
+            echo "${URL}" >> "${FAILED_URLS_FILE}"
+            return 0
+        fi
+        sleep 5
+    done
 }
 export -f save_image
+
+FAILED_URLS_FILE=$(mktemp)
+trap 'rm -f "${FAILED_URLS_FILE}"' EXIT INT TERM
+
+export FAILED_URLS_FILE
 
 # --- Hearthstone card images download loop ------------------------------------
 for LOCALE in "${LOCALES[@]}"; do
@@ -63,10 +90,7 @@ for LOCALE in "${LOCALES[@]}"; do
 
     echo "Collecting Hearthstone card image URLs for locale ${LOCALE}..."
 
-    mapfile -t URLS < <(
-        jq -r '.[] | (.image, .imageGold, .cropImage) | select(type == "string" and length > 0)' "${CARDS_FILE}" \
-        | sort -u
-    )
+    mapfile -t URLS < <( jq -r '.[] | .image, .imageGold, .cropImage | select(. and length > 0)' "${CARDS_FILE}" | sort -u )
 
     IMAGE_COUNT="${#URLS[@]}"
 
@@ -77,7 +101,7 @@ for LOCALE in "${LOCALES[@]}"; do
     echo "Downloading..."
 
     URLS_FILE=$(mktemp)
-    trap 'rm -f "${URLS_FILE}"' EXIT
+    trap 'rm -f "${URLS_FILE}"' EXIT INT TERM
 
     printf '%s\n' "${URLS[@]}" > "${URLS_FILE}"
 
@@ -94,5 +118,14 @@ for LOCALE in "${LOCALES[@]}"; do
 
     wait "${PARALLEL_PID}"
 
-    echo -e "\nSaved ${IMAGE_COUNT} images.\n"
+    DOWNLOADED=$(ls "${CARDS_DIR}" 2>/dev/null | wc -l)
+    SKIPPED=$(( IMAGE_COUNT - DOWNLOADED ))
+
+    echo -e "\nImages: ${DOWNLOADED} downloaded, ${SKIPPED} failed.\n"
 done
+
+# --- Display errors -----------------------------------------------------------
+if [[ "${SHOW_FAILED}" == "true" ]] && [[ -s "${FAILED_URLS_FILE}" ]]; then
+    echo "Failed images:" >&2
+    cat "${FAILED_URLS_FILE}" >&2
+fi

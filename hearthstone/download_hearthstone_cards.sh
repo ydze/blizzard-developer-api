@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+tput civis
+trap 'tput cnorm' EXIT INT TERM
+
 # ─── Dependencies ─────────────────────────────────────────────────────────────
 for CMD in curl jq parallel; do
     if ! command -v "${CMD}" &> /dev/null; then
@@ -18,13 +21,10 @@ progress() {
     local PERCENT=$(( CURRENT * 100 / TOTAL ))
     local FILLED=$(( CURRENT * WIDTH / TOTAL ))
     local EMPTY=$(( WIDTH - FILLED ))
+    local MSG="[$(printf '#%.0s' $(seq 1 $FILLED))$(printf ' %.0s' $(seq 1 $EMPTY))] ${PERCENT}% (${CURRENT}/${TOTAL})"
+    local PAD=$(( 80 - ${#MSG} ))
 
-    printf "\r[%${FILLED}s%${EMPTY}s] %d%% (%d/%d)" \
-        "$(printf '#%.0s' $(seq 1 $FILLED))" \
-        "" \
-        "$PERCENT" \
-        "$CURRENT" \
-        "$TOTAL"
+    printf "\r%s%${PAD}s" "${MSG}" ""
 }
 
 # ─── Configuration ────────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ echo "Access token acquired."
 
 # ─── Make temp dir ------------------------------------------------------------
 TMP_DIR=$(mktemp -d)
-trap 'rm -rf "${TMP_DIR}"' EXIT
+trap 'rm -rf "${TMP_DIR}"' EXIT INT TERM
 
 # --- Fetch a single Hearthstone cards page ------------------------------------
 get_page() {
@@ -144,7 +144,7 @@ for LOCALE in "${LOCALES[@]}"; do
         wait "${PARALLEL_PID}" && echo
     done
 
-    OUTPUT_DIR="$(dirname "$0")/data/${LOCALE}" && mkdir -p "${OUTPUT_DIR}"
+    OUTPUT_DIR="${PROJECT_DIR}/data/hearthstone/${LOCALE}" && mkdir -p "${OUTPUT_DIR}"
     SAVED_FILE="${OUTPUT_DIR}/${OUTPUT_FILE}"
 
     # ─── Merge all pages into a single JSON array ─────────────────────────────

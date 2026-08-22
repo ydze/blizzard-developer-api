@@ -1,0 +1,51 @@
+{
+  "props": [
+    {
+      "propname": "author",
+      "proptype": [
+        {
+          "props": [
+            {
+              "propname": "name",
+              "proptype": [
+                "string"
+              ],
+              "nullable": false
+            },
+            {
+              "propname": "website",
+              "proptype": [
+                "string"
+              ],
+              "nullable": false
+            }
+          ]
+        }
+      ],
+      "nullable": false
+    },
+    {
+      "propname": "locales",
+      "proptype": [
+        [
+          "string"
+        ]
+      ],
+      "nullable": false
+    },
+    {
+      "propname": "name",
+      "proptype": [
+        "string"
+      ],
+      "nullable": false
+    },
+    {
+      "propname": "ver",
+      "proptype": [
+        "number"
+      ],
+      "nullable": false
+    }
+  ]
+}

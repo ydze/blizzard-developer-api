@@ -5,6 +5,9 @@
 assets/
 data/
 
+# Python virtual environment
+.venv/
+
 # Temporary files
 *.bak
 *.old

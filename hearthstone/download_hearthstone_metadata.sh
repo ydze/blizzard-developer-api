@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+tput civis
+trap 'tput cnorm' EXIT INT TERM
+
 # ─── Dependencies ─────────────────────────────────────────────────────────────
 for CMD in curl jq parallel; do
     if ! command -v "${CMD}" &> /dev/null; then
@@ -36,7 +39,7 @@ echo "Access token acquired."
 get_metadata() {
     local LOCALE=$1
 
-    local OUTPUT_DIR="${BASE_DIR}/data/${LOCALE}"
+    local OUTPUT_DIR="${BASE_DIR}/data/hearthstone/${LOCALE}"
     local SAVED_FILE="${OUTPUT_DIR}/${OUTPUT_FILE}"
 
     mkdir -p "${OUTPUT_DIR}"
@@ -53,6 +56,6 @@ get_metadata() {
 }
 export -f get_metadata
 
-export ACCESS_TOKEN API_BASE BASE_DIR=$(dirname "$0") OUTPUT_FILE
+export ACCESS_TOKEN API_BASE BASE_DIR="${PROJECT_DIR}" OUTPUT_FILE
 
 parallel -j "${#LOCALES[@]}" get_metadata ::: "${LOCALES[@]}"
