@@ -72,6 +72,7 @@ def describe:
 def indent(n): reduce range(n) as $i (""; . + "  ");
 
 def format:
+  # Step 1: set indentation levels
   ( .depth ) as $curr_lvl |
   ( .depth + 1 ) as $next_lvl |
   ( .depth + 2 ) as $deep_lvl |
@@ -79,12 +80,15 @@ def format:
   ( indent($next_lvl) ) as $next_indent |
   ( indent($deep_lvl) ) as $deep_indent |
 
+  # Step 2: group types by category
   ( [ .data[] | select(type == "string" and . != "null") ] ) as $sca_types |
   ( [ .data[] | select(type == "array") ] ) as $arr_types |
   ( [ .data[] | select(type == "object" and has("props")) ] ) as $obj_types |
 
+  # Step 3: if 'null' appears alongside other types, mark them as nullable
   ( ( .data | length ) > 1 and any(.data[]; . == "null") ) as $nullable |
 
+  # Step 4: (fallback), display 'null' explicitly when it is the only type
   ( if ( .data | length ) == 1 and .data[0] == "null" then ["null"] else $sca_types end ) as $sca_types |
 
   ( [ $sca_types[] ]
@@ -93,6 +97,7 @@ def format:
       | if length == 0 then
           "[]"
         else
+          # Step 5: if array contains only one scalar type, display it without indentation
           ( map(select(. != "null")) | ( length == 1 and ( .[0] | type == "string" ) ) ) as $single
           | { depth: $next_lvl, data: . }
           | format
@@ -110,6 +115,7 @@ def format:
         else
           [ .props[]
             | ( .proptype | map(select(. != "null")) | length > 1 ) as $many
+            # Step 6: apply $null_mark only if 'null' is not one of the missing/nullable property types
             | ( if .nullable and ( any(.proptype[]; . == "null") | not ) then "?" else "" end ) as $null_mark
             | ( if $many then $deep_lvl else $next_lvl end ) as $lvl
             | ( if $many then "\n\($deep_indent)" else "" end ) as $ind
@@ -134,5 +140,5 @@ end
   elif $format == "raw" then
     .
   else
-    empty
+    error("Unknown format '\($format)'. Use 'default' or 'raw'.")
   end
