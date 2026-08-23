@@ -1,28 +1,14 @@
-{% macro csharp_type(proptype, nullable) %}
-{%- set types = [] %}
-{%- for t in proptype %}
-  {%- if t is string %}
-    {%- if t == "number" %}{% set _ = types.append("int") %}
-    {%- elif t == "string" %}{% set _ = types.append("string") %}
-    {%- elif t == "boolean" %}{% set _ = types.append("bool") %}
-    {%- elif t == "null" %}{% set _ = types.append("null") %}
-    {%- endif %}
-  {%- elif t is iterable and t is not mapping %}
-    {%- set _ = types.append("List<" + csharp_type(t, false) + ">") %}
-  {%- elif t is mapping and t.props is defined %}
-    {%- set _ = types.append("object") %}
-  {%- endif %}
-{%- endfor %}
-{{- types | join(" | ") }}{{ "?" if nullable }}
-{%- endmacro %}
+{% for cls in classes %}
 
-{% macro render_class(name, props) %}
-public class {{ name }}
+public class {{ cls.name }}
 {
-  {% for prop in props %}
-  public {{ csharp_type(prop.proptype, prop.nullable) }} {{ prop.propname | title }} { get; set; }
-  {% endfor %}
+    {% for prop in cls.properties %}
+    {% if prop.types %}
+    /// <summary>
+    /// Can be: {{ prop.types | join(", ") }}
+    /// </summary>
+    {% endif %}
+    public {{ prop.type }} {{ prop.name }} { get; set; }
+    {% endfor %}
 }
-{% endmacro %}
-
-{{ render_class("Root", schema.props) }}
+{% endfor %}

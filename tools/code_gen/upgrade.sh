@@ -6,7 +6,7 @@ tput civis
 trap 'tput cnorm' EXIT INT TERM
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
-for CMD in python3 pip3; do
+for CMD in pip3; do
     if ! command -v "${CMD}" &> /dev/null; then
         echo "Required command '${CMD}' is not installed." >&2
         exit 1
@@ -15,19 +15,19 @@ done
 
 SCRIPT_DIR="$(dirname "$0")"
 VENV_DIR="${SCRIPT_DIR}/.venv"
+ACTIVATE="${VENV_DIR}/bin/activate"
 
-# ─── Create virtual environment if it doesn't exist ─────────────────────------
-if [[ ! -d "${VENV_DIR}" ]]; then
-    echo "Creating virtual environment..."
-    python3 -m venv "${VENV_DIR}"
+if [[ ! -f "${ACTIVATE}" ]]; then
+    echo "Virtual environment not found. Run setup.sh first." >&2
+    exit 1
 fi
 
 # ─── Activate virtual environment ─────────────────────────────────────────----
-source "${VENV_DIR}/bin/activate"
+source "${ACTIVATE}"
 
-# ─── Install dependencies ─────────────────────────────────────────────────────
-echo "Installing dependencies..."
+# ─── Upgrade dependencies ─────────────────────────────────────────────────────
+echo "Upgrading dependencies..."
 
-pip3 install -r "${SCRIPT_DIR}/requirements.txt"
+pip3 install --upgrade -r "${SCRIPT_DIR}/requirements.txt"
 
-echo "Setup complete."
+echo "Upgrade complete."
