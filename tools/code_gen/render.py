@@ -5,16 +5,30 @@ import click
 import inflection
 import re
 from dataclasses import dataclass, field
+from enum import Enum
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 
 
+class PseudoPropertyKind(Enum):
+    ANY = "ANY"
+    ARRAY = "ARRAY"
+    OBJECT = "OBJECT"
+    SCALAR = "SCALAR"
+
+
+@dataclass
+class PseudoPropertyType:
+    kind: PseudoPropertyKind
+    type: str | "PseudoPropertyType"
+    possible_types: list["PseudoPropertyType"] = field(default_factory=list)
+
+
 @dataclass
 class PseudoProperty:
-    name: str
-    type: str
+    propname: str
+    proptype: PseudoPropertyType
     nullable: bool
-    types: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -22,13 +36,6 @@ class PseudoClass:
     name: str
     properties: list[PseudoProperty] = field(default_factory=list)
     nested_classes: list["PseudoClass"] = field(default_factory=list)
-
-
-CSHARP_TYPE_MAP = {
-    "string": "string",
-    "number": "long",
-    "boolean": "bool",
-}
 
 
 def validate_class_name(ctx, param, value):
@@ -39,68 +46,45 @@ def validate_class_name(ctx, param, value):
     return value
 
 
-def describe_array(arr: list) -> str:
-    return f"[{describe_proptype(arr)}]"
-
-
-def describe_object(obj: dict) -> str:
-    parts = [
-        f'"{p["propname"]}": {describe_proptype(p["proptype"])}' for p in obj["props"]
-    ]
-    return f"{{{', '.join(parts)}}}"
-
-
-def describe_proptype(proptype: list) -> str:
-    parts = []
-    for t in proptype:
-        if isinstance(t, str) and t != "null":
-            parts.append(CSHARP_TYPE_MAP.get(t, t))
-        elif isinstance(t, list):
-            parts.append(describe_array(t))
-        elif isinstance(t, dict) and "props" in t:
-            parts.append(describe_object(t))
-    return f"{', '.join(parts)}"
-
-
-def resolve_csharp_type(proptype: list, nullable: bool) -> tuple[str, list[str]]:
-    """
-    Returns (csharp_type, all_types) tuple.
-    all_types is used for XML doc comment when type is dynamic.
-    """
-    has_null = "null" in proptype
-    is_nullable = nullable or has_null
+def resolve_type(propname: str, proptype: list, classes: list) -> PseudoPropertyType:
     types = [t for t in proptype if t != "null"]
 
     scalars = [t for t in types if isinstance(t, str)]
     arrays = [t for t in types if isinstance(t, list)]
     objects = [t for t in types if isinstance(t, dict) and "props" in t]
 
-    nullable_suffix = "?" if is_nullable else ""
+    # only null — unknown type
+    if not types:
+        return PseudoPropertyType(
+            kind=PseudoPropertyKind.ANY,
+            type="any",
+            possible_types=[
+                PseudoPropertyType(kind=PseudoPropertyKind.SCALAR, type=proptype[0])
+            ],
+        )
 
-    # single scalar type
+    # single scalar
     if len(scalars) == 1 and not arrays and not objects:
-        return CSHARP_TYPE_MAP.get(scalars[0], scalars[0]) + nullable_suffix, []
+        return PseudoPropertyType(kind=PseudoPropertyKind.SCALAR, type=scalars[0])
 
-    # single array type
+    # single array
     if len(arrays) == 1 and not scalars and not objects:
-        inner_type, inner_types = resolve_csharp_type(arrays[0], False)
-        # mixed element types — dynamic array with doc comment
-        if inner_types:
-            return f"dynamic[]{nullable_suffix}", [describe_array(arrays[0])]
-        return f"{inner_type}[]{nullable_suffix}", []
+        inner = resolve_type(propname, arrays[0], classes)
+        return PseudoPropertyType(kind=PseudoPropertyKind.ARRAY, type=inner)
 
-    # single object type — handled separately in schema_to_class
+    # single object
     if len(objects) == 1 and not scalars and not arrays:
-        return None, []  # signal to use nested class name
+        nested_name = propname
+        nested_class = schema_to_class(nested_name, objects[0]["props"], classes)
+        classes.append(nested_class)
+        return PseudoPropertyType(kind=PseudoPropertyKind.OBJECT, type=nested_name)
 
-    all_type_names = (
-        [CSHARP_TYPE_MAP.get(s, s) for s in scalars]
-        + [describe_array(a) for a in arrays]
-        + [describe_object(o) for o in objects]
+    # multiple types — any
+    return PseudoPropertyType(
+        kind=PseudoPropertyKind.ANY,
+        type="any",
+        possible_types=[resolve_type(propname, [t], classes) for t in types],
     )
-
-    # multiple types — use dynamic
-    return f"dynamic{nullable_suffix}", all_type_names
 
 
 def schema_to_class(name: str, props: list, classes: list) -> PseudoClass:
@@ -113,26 +97,14 @@ def schema_to_class(name: str, props: list, classes: list) -> PseudoClass:
 
         has_null = "null" in proptype
         is_nullable = nullable or has_null
-        nullable_suffix = "?" if is_nullable else ""
 
-        objects = [t for t in proptype if isinstance(t, dict) and "props" in t]
-
-        if len(proptype) == 1 and objects:
-            # single nested object — generate nested class
-            nested_name = inflection.camelize(propname)
-            nested_class = schema_to_class(nested_name, objects[0]["props"], classes)
-            classes.append(nested_class)
-            csharp_type = nested_name + nullable_suffix
-            all_types = []
-        else:
-            csharp_type, all_types = resolve_csharp_type(proptype, nullable)
+        pseudo_type = resolve_type(propname, proptype, classes)
 
         cls.properties.append(
             PseudoProperty(
-                name=inflection.camelize(propname),
-                type=csharp_type,
+                propname=propname,
+                proptype=pseudo_type,
                 nullable=is_nullable,
-                types=all_types,
             )
         )
 
@@ -140,15 +112,15 @@ def schema_to_class(name: str, props: list, classes: list) -> PseudoClass:
 
 
 def render(schema: list | dict, class_name: str, template: str) -> str:
-    if isinstance(schema, list):
-        root_props = schema[0]["props"]
+    if isinstance(schema, list) and "props" in schema[0]:
+        class_props = schema[0]["props"]
     elif isinstance(schema, dict) and "props" in schema:
-        root_props = schema["props"]
+        class_props = schema["props"]
     else:
         raise click.ClickException("Invalid schema format")
 
     classes = []
-    root = schema_to_class(class_name, root_props, classes)
+    root = schema_to_class(class_name, class_props, classes)
     classes.insert(0, root)
 
     template_path = Path(template)
@@ -157,6 +129,7 @@ def render(schema: list | dict, class_name: str, template: str) -> str:
         lstrip_blocks=True,
         trim_blocks=True,
     )
+    env.filters["camelize"] = inflection.camelize
 
     tmpl = env.get_template(template_path.name)
     return tmpl.render(classes=classes)
@@ -186,7 +159,7 @@ def render(schema: list | dict, class_name: str, template: str) -> str:
     "--class-name",
     required=True,
     callback=validate_class_name,
-    help="Name of the root class",
+    help="Name of the top-level class",
 )
 def main(template, input, output, class_name):
     with open(input) as f:
@@ -199,6 +172,7 @@ def main(template, input, output, class_name):
     else:
         with open(output, "w") as f:
             f.write(result)
+        click.echo(f"Saved {output}.")
 
 
 if __name__ == "__main__":

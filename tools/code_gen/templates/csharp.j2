@@ -1,14 +1,27 @@
+{% macro csharp_type(proptype) -%}
+{%- if proptype.kind.value == "SCALAR" -%}
+  {%- if proptype.type == "string" -%}string
+  {%- elif proptype.type == "number" -%}long
+  {%- elif proptype.type == "boolean" -%}bool
+  {%- else -%}dynamic
+  {%- endif -%}
+{%- elif proptype.kind.value == "ARRAY" -%}{{ csharp_type(proptype.type) }}[]
+{%- elif proptype.kind.value == "OBJECT" -%}{{ proptype.type }}
+{%- elif proptype.kind.value == "ANY" -%}dynamic
+{%- endif -%}
+{%- endmacro %}
+
 {% for cls in classes %}
 
-public class {{ cls.name }}
+public class {{ cls.name | camelize }}
 {
     {% for prop in cls.properties %}
-    {% if prop.types %}
+    {% if prop.proptype.kind.value == "ANY" %}
     /// <summary>
-    /// Can be: {{ prop.types | join(", ") }}
+    /// Can be: {{ prop.proptype.possible_types | map(attribute='type') | join(", ") }}
     /// </summary>
     {% endif %}
-    public {{ prop.type }} {{ prop.name }} { get; set; }
+    public {{ csharp_type(prop.proptype) }}{{ "?" if prop.nullable }} {{ prop.propname | camelize }} { get; set; }
     {% endfor %}
 }
 {% endfor %}
