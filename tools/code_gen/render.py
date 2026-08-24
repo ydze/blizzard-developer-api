@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
-import json
 import click
+import dataclasses
 import inflection
+import json
 import re
 from dataclasses import dataclass, field
 from enum import Enum
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
+from pprint import pprint
 
 
 class PseudoPropertyKind(Enum):
@@ -21,6 +23,7 @@ class PseudoPropertyKind(Enum):
 class PseudoPropertyType:
     kind: PseudoPropertyKind
     type: str | "PseudoPropertyType"
+    nullable: bool
     possible_types: list["PseudoPropertyType"] = field(default_factory=list)
 
 
@@ -28,7 +31,7 @@ class PseudoPropertyType:
 class PseudoProperty:
     propname: str
     proptype: PseudoPropertyType
-    nullable: bool
+    missing: bool
 
 
 @dataclass
@@ -38,15 +41,14 @@ class PseudoClass:
     nested_classes: list["PseudoClass"] = field(default_factory=list)
 
 
-def validate_class_name(ctx, param, value):
-    if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", value):
-        raise click.BadParameter(
-            "Class name must start with a letter and contain only letters, numbers and underscores."
-        )
-    return value
-
-
 def resolve_type(propname: str, proptype: list, classes: list) -> PseudoPropertyType:
+    # empty array — unknown element type
+    if not proptype:
+        return PseudoPropertyType(
+            kind=PseudoPropertyKind.ANY, type="any", nullable=True
+        )
+
+    is_nullable = "null" in proptype
     types = [t for t in proptype if t != "null"]
 
     scalars = [t for t in types if isinstance(t, str)]
@@ -58,6 +60,7 @@ def resolve_type(propname: str, proptype: list, classes: list) -> PseudoProperty
         return PseudoPropertyType(
             kind=PseudoPropertyKind.ANY,
             type="any",
+            nullable=is_nullable,
             possible_types=[
                 PseudoPropertyType(kind=PseudoPropertyKind.SCALAR, type=proptype[0])
             ],
@@ -65,24 +68,31 @@ def resolve_type(propname: str, proptype: list, classes: list) -> PseudoProperty
 
     # single scalar
     if len(scalars) == 1 and not arrays and not objects:
-        return PseudoPropertyType(kind=PseudoPropertyKind.SCALAR, type=scalars[0])
+        return PseudoPropertyType(
+            kind=PseudoPropertyKind.SCALAR, type=scalars[0], nullable=is_nullable
+        )
 
     # single array
     if len(arrays) == 1 and not scalars and not objects:
         inner = resolve_type(propname, arrays[0], classes)
-        return PseudoPropertyType(kind=PseudoPropertyKind.ARRAY, type=inner)
+        return PseudoPropertyType(
+            kind=PseudoPropertyKind.ARRAY, type=inner, nullable=is_nullable
+        )
 
     # single object
     if len(objects) == 1 and not scalars and not arrays:
         nested_name = propname
         nested_class = schema_to_class(nested_name, objects[0]["props"], classes)
         classes.append(nested_class)
-        return PseudoPropertyType(kind=PseudoPropertyKind.OBJECT, type=nested_name)
+        return PseudoPropertyType(
+            kind=PseudoPropertyKind.OBJECT, type=nested_name, nullable=is_nullable
+        )
 
     # multiple types — any
     return PseudoPropertyType(
         kind=PseudoPropertyKind.ANY,
         type="any",
+        nullable=is_nullable,
         possible_types=[resolve_type(propname, [t], classes) for t in types],
     )
 
@@ -93,19 +103,12 @@ def schema_to_class(name: str, props: list, classes: list) -> PseudoClass:
     for prop in props:
         propname = prop["propname"]
         proptype = prop["proptype"]
-        nullable = prop["nullable"]
-
-        has_null = "null" in proptype
-        is_nullable = nullable or has_null
+        missing = prop["missing"]
 
         pseudo_type = resolve_type(propname, proptype, classes)
 
         cls.properties.append(
-            PseudoProperty(
-                propname=propname,
-                proptype=pseudo_type,
-                nullable=is_nullable,
-            )
+            PseudoProperty(propname=propname, proptype=pseudo_type, missing=missing)
         )
 
     return cls
@@ -131,8 +134,18 @@ def render(schema: list | dict, class_name: str, template: str) -> str:
     )
     env.filters["camelize"] = inflection.camelize
 
+    # for cls in classes: pprint(dataclasses.asdict(cls))
+
     tmpl = env.get_template(template_path.name)
-    return tmpl.render(classes=classes)
+    return tmpl.render(classes=classes).strip()
+
+
+def validate_class_name(ctx, param, value):
+    if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", value):
+        raise click.BadParameter(
+            "Class name must start with a letter and contain only letters, numbers and underscores."
+        )
+    return value
 
 
 @click.command()

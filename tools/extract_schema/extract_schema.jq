@@ -34,7 +34,7 @@ def merge:
                     proptype: ( [ .[].proptype[] ] | merge ),
 
                     # Step 4: mark property as missing/nullable if number of {key, value} pairs in the group is less than $total objects.
-                    nullable: ( length < $total )
+                    missing: ( length < $total )
                   }
               ]
             }
@@ -116,7 +116,7 @@ def format:
           [ .props[]
             | ( .proptype | map(select(. != "null")) | length > 1 ) as $many
             # Step 6: apply $null_mark only if 'null' is not one of the missing/nullable property types
-            | ( if .nullable and ( any(.proptype[]; . == "null") | not ) then "?" else "" end ) as $null_mark
+            | ( if .missing and ( any(.proptype[]; . == "null") | not ) then "?" else "" end ) as $null_mark
             | ( if $many then $deep_lvl else $next_lvl end ) as $lvl
             | ( if $many then "\n\($deep_indent)" else "" end ) as $ind
             | "\($next_indent)\(.propname): \( { depth: $lvl, data: .proptype } | format | "\($ind)\(.)\($null_mark)" )"

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 tput civis
-trap 'tput cnorm' EXIT INT TERM
+trap 'tput cnorm; rm -rf "${TMP_DIR:-}"' EXIT INT TERM
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
 for CMD in curl jq parallel; do
@@ -69,7 +69,6 @@ echo "Access token acquired."
 
 # ─── Make temp dir ------------------------------------------------------------
 TMP_DIR=$(mktemp -d)
-trap 'rm -rf "${TMP_DIR}"' EXIT INT TERM
 
 # --- Fetch a single Hearthstone cards page ------------------------------------
 get_page() {

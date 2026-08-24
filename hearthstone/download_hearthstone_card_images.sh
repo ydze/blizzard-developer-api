@@ -2,8 +2,10 @@
 
 set -euo pipefail
 
+TEMP_FILES=()
+
 tput civis
-trap 'tput cnorm' EXIT INT TERM
+trap 'tput cnorm; [[ ${#TEMP_FILES[@]} -gt 0 ]] && rm -f "${TEMP_FILES[@]}"' EXIT INT TERM
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
 for CMD in curl jq parallel; do
@@ -74,7 +76,7 @@ save_image() {
 export -f save_image
 
 FAILED_URLS_FILE=$(mktemp)
-trap 'rm -f "${FAILED_URLS_FILE}"' EXIT INT TERM
+TEMP_FILES+=("${FAILED_URLS_FILE}")
 
 export FAILED_URLS_FILE
 
@@ -101,7 +103,7 @@ for LOCALE in "${LOCALES[@]}"; do
     echo "Downloading..."
 
     URLS_FILE=$(mktemp)
-    trap 'rm -f "${URLS_FILE}"' EXIT INT TERM
+    TEMP_FILES+=("${URLS_FILE}")
 
     printf '%s\n' "${URLS[@]}" > "${URLS_FILE}"
 
