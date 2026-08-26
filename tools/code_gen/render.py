@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
 import click
-import dataclasses
 import inflection
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from enum import Enum
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
@@ -38,43 +37,27 @@ class PseudoProperty:
 class PseudoClass:
     name: str
     properties: list[PseudoProperty] = field(default_factory=list)
-    nested_classes: list["PseudoClass"] = field(default_factory=list)
 
 
 def resolve_type(propname: str, proptype: list, classes: list) -> PseudoPropertyType:
-    # empty array — unknown element type
-    if not proptype:
-        return PseudoPropertyType(
-            kind=PseudoPropertyKind.ANY, type="any", nullable=True
-        )
-
-    is_nullable = "null" in proptype
+    is_nullable = not proptype or "null" in proptype
     types = [t for t in proptype if t != "null"]
 
     scalars = [t for t in types if isinstance(t, str)]
     arrays = [t for t in types if isinstance(t, list)]
     objects = [t for t in types if isinstance(t, dict) and "props" in t]
 
-    # only null — unknown type
-    if not types:
-        return PseudoPropertyType(
-            kind=PseudoPropertyKind.ANY,
-            type="any",
-            nullable=is_nullable,
-            possible_types=[
-                PseudoPropertyType(kind=PseudoPropertyKind.SCALAR, type=proptype[0])
-            ],
-        )
-
     # single scalar
     if len(scalars) == 1 and not arrays and not objects:
+        scalar = scalars[0]
         return PseudoPropertyType(
-            kind=PseudoPropertyKind.SCALAR, type=scalars[0], nullable=is_nullable
+            kind=PseudoPropertyKind.SCALAR, type=scalar, nullable=is_nullable
         )
 
     # single array
     if len(arrays) == 1 and not scalars and not objects:
-        inner = resolve_type(propname, arrays[0], classes)
+        array = arrays[0]
+        inner = resolve_type(propname, array, classes)
         return PseudoPropertyType(
             kind=PseudoPropertyKind.ARRAY, type=inner, nullable=is_nullable
         )
@@ -82,13 +65,14 @@ def resolve_type(propname: str, proptype: list, classes: list) -> PseudoProperty
     # single object
     if len(objects) == 1 and not scalars and not arrays:
         nested_name = propname
-        nested_class = schema_to_class(nested_name, objects[0]["props"], classes)
+        nested_props = objects[0]["props"]
+        nested_class = schema_to_class(nested_name, nested_props, classes)
         classes.append(nested_class)
         return PseudoPropertyType(
             kind=PseudoPropertyKind.OBJECT, type=nested_name, nullable=is_nullable
         )
 
-    # multiple types — any
+    # zero or many types — any (unknown type)
     return PseudoPropertyType(
         kind=PseudoPropertyKind.ANY,
         type="any",
@@ -97,10 +81,10 @@ def resolve_type(propname: str, proptype: list, classes: list) -> PseudoProperty
     )
 
 
-def schema_to_class(name: str, props: list, classes: list) -> PseudoClass:
-    cls = PseudoClass(name=name)
+def schema_to_class(class_name: str, class_props: list, classes: list) -> PseudoClass:
+    cls = PseudoClass(name=class_name)
 
-    for prop in props:
+    for prop in class_props:
         propname = prop["propname"]
         proptype = prop["proptype"]
         missing = prop["missing"]
@@ -114,38 +98,34 @@ def schema_to_class(name: str, props: list, classes: list) -> PseudoClass:
     return cls
 
 
-def render(schema: list | dict, class_name: str, template: str) -> str:
-    if isinstance(schema, list) and "props" in schema[0]:
-        class_props = schema[0]["props"]
-    elif isinstance(schema, dict) and "props" in schema:
-        class_props = schema["props"]
-    else:
-        raise click.ClickException("Invalid schema format")
-
-    classes = []
-    root = schema_to_class(class_name, class_props, classes)
-    classes.insert(0, root)
-
-    template_path = Path(template)
-    env = Environment(
-        loader=FileSystemLoader(str(template_path.parent)),
-        lstrip_blocks=True,
-        trim_blocks=True,
-    )
-    env.filters["camelize"] = inflection.camelize
-
-    # for cls in classes: pprint(dataclasses.asdict(cls))
-
-    tmpl = env.get_template(template_path.name)
-    return tmpl.render(classes=classes).strip()
-
-
 def validate_class_name(ctx, param, value):
     if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", value):
         raise click.BadParameter(
             "Class name must start with a letter and contain only letters, numbers and underscores."
         )
     return value
+
+
+def print_debug(classes: list):
+    title = " Class Schematics "
+    title_length = (80 - len(title) - 1) // 2
+    print(f"╔{"═" * title_length}{title}{"═" * title_length}╗")
+    for cls in classes:
+        prefix = "╠══ "
+        prefix_length = len(prefix)
+        class_name = f"{prefix}{cls.name} "
+        class_name_length = 80 - len(class_name) - 1
+        print(f"{class_name}{"═" * class_name_length}{"╣"}")
+        json_str = json.dumps(
+            asdict(cls),
+            indent=2,
+            default=lambda o: o.value if isinstance(o, Enum) else str(o),
+        )
+        indented = "\n".join(
+            f"{" " * prefix_length}{line}" for line in json_str.splitlines()
+        )
+        print(indented)
+    print(f"╚{"═" * 78}╝\n")
 
 
 @click.command()
@@ -174,11 +154,41 @@ def validate_class_name(ctx, param, value):
     callback=validate_class_name,
     help="Name of the top-level class",
 )
-def main(template, input, output, class_name):
+@click.option(
+    "--debug",
+    required=False,
+    is_flag=True,
+    default=False,
+    help="Print debug information",
+)
+def main(template, input, output, class_name, debug):
     with open(input) as f:
         schema = json.load(f)
 
-    result = render(schema, class_name, template)
+    root_schema = schema[0] if isinstance(schema, list) and len(schema) == 1 else schema
+
+    if not isinstance(root_schema, dict):
+        raise click.ClickException("Invalid schema format")
+
+    class_props = root_schema["props"]
+    classes = []
+    root = schema_to_class(class_name, class_props, classes)
+    classes.append(root)
+    classes.reverse()
+
+    if debug:
+        print_debug(classes=classes)
+
+    template_path = Path(template)
+    env = Environment(
+        loader=FileSystemLoader(str(template_path.parent)),
+        lstrip_blocks=True,
+        trim_blocks=True,
+    )
+    env.filters["camelize"] = inflection.camelize
+
+    tmpl = env.get_template(template_path.name)
+    result = tmpl.render(classes=classes).strip()
 
     if output is None:
         click.echo(result)

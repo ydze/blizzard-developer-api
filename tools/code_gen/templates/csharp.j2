@@ -15,37 +15,32 @@
 {{ "?" if proptype.nullable or missing }}
 {%- endmacro %}
 
-{% macro has_possible_types(proptype) -%}
-{%- if proptype.possible_types | length > 0 -%}true
-{%- elif proptype.kind.value == "ARRAY" and proptype.type.kind.value == "ANY" and proptype.type.possible_types | length == 0 -%}true
-{%- elif proptype.kind.value == "ARRAY" -%}{{ has_possible_types(proptype.type) }}
+{% macro is_empty_array(proptype) -%}
+{%- if proptype.kind.value == "ARRAY" and proptype.type.kind.value == "ANY" and proptype.type.possible_types | length == 0 -%}true
 {%- else -%}false
 {%- endif -%}
 {%- endmacro %}
 
-{% macro format_type(pt) -%}
-{%- if pt.kind.value == "ARRAY" -%}
-  {%- if pt.type.kind.value == "ANY" and pt.type.possible_types | length == 0 -%}[ any ]
-  {%- else -%}[ {{ format_type(pt.type) }} ]
-  {%- endif -%}
-{%- elif pt.kind.value == "OBJECT" -%}<see cref="{{ pt.type | camelize }}"/>
-{%- elif pt.kind.value == "ANY" and pt.possible_types | length > 0 -%}
-  {%- for nested_pt in pt.possible_types -%}
-    {{- format_type(nested_pt) -}}
-    {%- if not loop.last %} | {% endif -%}
-  {%- endfor -%}
-{%- else -%}{{ pt.type }}
+{% macro comment_required(proptype) -%}
+{%- if proptype.possible_types | length > 0 -%}true
+{%- elif is_empty_array(proptype) == "true" -%}true
+{%- elif proptype.kind.value == "ARRAY" -%}{{ comment_required(proptype.type) }}
+{%- else -%}false
 {%- endif -%}
 {%- endmacro %}
 
-{% macro display_possible_types(proptype) -%}
-{%- if proptype.possible_types | length > 0 -%}
-  {%- for pt in proptype.possible_types -%}
-    {{- format_type(pt) -}}
-    {%- if not loop.last %} | {% endif -%}
-  {%- endfor -%}
-{%- elif proptype.kind.value == "ARRAY" -%}[ {{ display_possible_types(proptype.type) }} ]
-{%- else -%}{{ format_type(proptype) }}
+{% macro format_type(proptype) -%}
+{%- if proptype.kind.value == "ARRAY" -%}[ {{ format_type(proptype.type) }} ]
+{%- elif proptype.kind.value == "ANY" -%}
+  {%- if proptype.possible_types | length == 0 -%}{{ proptype.type }}
+  {%- else -%}
+    {%- for nested_pt in proptype.possible_types -%}
+      {{- format_type(nested_pt) -}}
+      {%- if not loop.last %} | {% endif -%}
+    {%- endfor -%}
+  {%- endif -%}
+{%- elif proptype.kind.value == "OBJECT" -%}<see cref="{{ proptype.type | camelize }}"/>
+{%- else -%}{{ proptype.type }}
 {%- endif -%}
 {%- endmacro %}
 
@@ -54,9 +49,9 @@
 public class {{ cls.name | camelize }}
 {
     {% for prop in cls.properties %}
-    {% if has_possible_types(prop.proptype) == "true" %}
+    {% if comment_required(prop.proptype) == "true" %}
     /// <summary>
-    /// Can be: {{ display_possible_types(prop.proptype) }}
+    /// Can be: {{ format_type(prop.proptype) }}
     /// </summary>
     {% endif %}
     public {{ csharp_type(prop.proptype) }}{{ nullable_suffix(prop.proptype, prop.missing) }} {{ prop.propname | camelize }} { get; set; }
