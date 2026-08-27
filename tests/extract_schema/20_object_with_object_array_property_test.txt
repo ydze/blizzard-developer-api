@@ -1,7 +1,7 @@
 {
   arr: [
     {
-      num: number?,
+      num: integer?,
       str: string?
     }
   ]

@@ -1,4 +1,4 @@
 [
-  number?,
+  integer?,
   string?
 ]

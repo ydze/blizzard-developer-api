@@ -8,7 +8,6 @@ from dataclasses import dataclass, field, asdict
 from enum import Enum
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
-from pprint import pprint
 
 
 class PseudoPropertyKind(Enum):
@@ -167,7 +166,7 @@ def main(template, input, output, class_name, debug):
 
     root_schema = schema[0] if isinstance(schema, list) and len(schema) == 1 else schema
 
-    if not isinstance(root_schema, dict):
+    if not isinstance(root_schema, dict) and not "props" in root_schema:
         raise click.ClickException("Invalid schema format")
 
     class_props = root_schema["props"]

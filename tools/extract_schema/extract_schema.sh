@@ -3,13 +3,11 @@
 set -euo pipefail
 
 FORMAT="default"
-VALIDATE=false
 
 while getopts "f:v" opt; do
     case $opt in
         f) FORMAT="${OPTARG}" ;;
-        v) VALIDATE=true ;;
-        ?) echo "Usage: $0 [-f format] [-v] json_file" >&2
+        ?) echo "Usage: $0 [-f format] json_file" >&2
            exit 1 ;;
     esac
 done
@@ -20,10 +18,6 @@ JSON_FILE="${1:?Please provide a JSON file}"
 
 if [[ ! -f "${JSON_FILE}" ]]; then
     echo "File not found: ${JSON_FILE}" >&2
-    exit 1
-fi
-
-if [[ "${VALIDATE}" == true ]] && ! "$(dirname "$0")/validate_json.sh" "${JSON_FILE}"; then
     exit 1
 fi
 

@@ -1,7 +1,8 @@
 {% macro csharp_type(proptype) -%}
 {%- if proptype.kind.value == "SCALAR" -%}
   {%- if proptype.type == "string" -%}string
-  {%- elif proptype.type == "number" -%}long
+  {%- elif proptype.type == "integer" -%}long
+  {%- elif proptype.type == "float" -%}double
   {%- elif proptype.type == "boolean" -%}bool
   {%- else -%}dynamic
   {%- endif -%}

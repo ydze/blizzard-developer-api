@@ -1,3 +1,14 @@
+def describe_type:
+  if type == "number" then
+    if . == floor then
+      "integer"
+    else
+      "float"
+    end
+  else
+    type
+  end;
+
 def merge:
   if length == 0 then
     []
@@ -66,7 +77,7 @@ def describe:
       }
     end
   else
-    type
+    . | describe_type
   end;
 
 def indent(n): reduce range(n) as $i (""; . + "  ");
