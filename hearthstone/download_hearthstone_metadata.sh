@@ -16,6 +16,7 @@ done
 # ─── Configuration ────────────────────────────────────────────────────────────
 REGION="${BLIZZARD_REGION:-us}"
 OUTPUT_FILE="metadata.json"
+MAX_PARALLEL_JOBS=30
 
 # ─── Available locales ────────────────────────────────────────────────────────
 if [[ -z "${BLIZZARD_LOCALE:-}" ]]; then
@@ -47,10 +48,12 @@ get_metadata() {
     local GET_CMD=(
         curl
         --silent --fail
+        --retry 10 --retry-delay 6 --retry-connrefused
         --header "Authorization: Bearer ${ACCESS_TOKEN}"
         "${API_BASE}/hearthstone/metadata?locale=${LOCALE}"
     )
-    until "${GET_CMD[@]}" | jq '.' > "${SAVED_FILE}"; do sleep 5; done
+
+    "${GET_CMD[@]}" | jq '.' > "${SAVED_FILE}"
 
     echo "Saved ${SAVED_FILE}."
 }
@@ -58,4 +61,8 @@ export -f get_metadata
 
 export ACCESS_TOKEN API_BASE BASE_DIR="${PROJECT_DIR}" OUTPUT_FILE
 
-parallel -j "${#LOCALES[@]}" get_metadata ::: "${LOCALES[@]}"
+LOCALE_COUNT="${#LOCALES[@]}"
+
+JOBS=$(( LOCALE_COUNT < MAX_PARALLEL_JOBS ? LOCALE_COUNT : MAX_PARALLEL_JOBS ))
+
+parallel -j "${JOBS}" get_metadata ::: "${LOCALES[@]}"

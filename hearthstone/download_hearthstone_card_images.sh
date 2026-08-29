@@ -17,14 +17,16 @@ done
 
 SHOW_FAILED=false
 
-OPTS=$(getopt -o "" --long show-failed -- "$@")
+OPTS=$(getopt -o "" --long show-failed -n "$(basename "$0")" -- "$@")
+
 eval set -- "${OPTS}"
 
 while true; do
     case "$1" in
         --show-failed) SHOW_FAILED=true; shift ;;
         --) shift; break ;;
-         *) echo "Usage: $0 [--show-failed]" >&2; exit 1 ;;
+         *) echo "Usage: $0 [--show-failed]" >&2;
+            exit 1 ;;
     esac
 done
 
@@ -46,7 +48,7 @@ progress() {
 DATA_DIR="${PROJECT_DIR}/data/hearthstone"
 DATA_FILE="hearthstone_cards.json"
 IMAGES_DIR="${PROJECT_DIR}/assets/hearthstone/card_images"
-PARALLEL_JOBS=100
+PARALLEL_JOBS=150
 
 # ─── Available locales ────────────────────────────────────────────────────────
 if [[ -z "${BLIZZARD_LOCALE:-}" ]]; then
@@ -56,22 +58,23 @@ else
     LOCALES=("${BLIZZARD_LOCALE}")
 fi
 
-# --- Save Hearthstone cards image ---------------------------------------------
+# ─── Save Hearthstone cards image ─────────────────────────────────────────────
 save_image() {
     local CARDS_DIR=$1
     local URL=$2
     local SAVED_FILE="${CARDS_DIR}/$(basename "${URL}")"
-    local ATTEMPTS=0
-    local MAX_ATTEMPTS=5
 
-    until curl --silent --fail --output "${SAVED_FILE}" "${URL}"; do
-        ATTEMPTS=$(( ATTEMPTS + 1 ))
-        if [[ "${ATTEMPTS}" -ge "${MAX_ATTEMPTS}" ]]; then
-            echo "${URL}" >> "${FAILED_URLS_FILE}"
-            return 0
-        fi
-        sleep 5
-    done
+    local DL_CMD=(
+        curl
+        --silent --fail
+        --retry 10 --retry-delay 6 --retry-connrefused
+        --output "${SAVED_FILE}"
+        "${URL}"
+    )
+
+    if ! "${DL_CMD[@]}"; then
+        echo "${URL}" >> "${FAILED_URLS_FILE}"
+    fi
 }
 export -f save_image
 
@@ -111,7 +114,7 @@ for LOCALE in "${LOCALES[@]}"; do
 
     PARALLEL_PID=$!
 
-    # ─── Track progress while images download ──────────────────────────────---
+    # ─── Track progress while images download ─────────────────────────────────
     while kill -0 "${PARALLEL_PID}" 2>/dev/null; do
         COMPLETED=$(ls "${CARDS_DIR}" 2>/dev/null | wc -l)
         progress "${COMPLETED}" "${IMAGE_COUNT}"
@@ -126,7 +129,7 @@ for LOCALE in "${LOCALES[@]}"; do
     echo -e "\nImages: ${DOWNLOADED} downloaded, ${SKIPPED} failed.\n"
 done
 
-# --- Display errors -----------------------------------------------------------
+# ─── Display errors ───────────────────────────────────────────────────────────
 if [[ "${SHOW_FAILED}" == "true" ]] && [[ -s "${FAILED_URLS_FILE}" ]]; then
     echo "Failed images:" >&2
     cat "${FAILED_URLS_FILE}" >&2

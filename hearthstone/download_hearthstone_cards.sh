@@ -31,6 +31,7 @@ progress() {
 REGION="${BLIZZARD_REGION:-us}"
 PAGE_SIZE=400
 OUTPUT_FILE="hearthstone_cards.json"
+MAX_PARALLEL_JOBS=30
 
 # ─── Available locales ────────────────────────────────────────────────────────
 if [[ -z "${BLIZZARD_LOCALE:-}" ]]; then
@@ -79,10 +80,12 @@ get_page() {
     local CURL_CMD=(
         curl
         --silent --fail
+        --retry 10 --retry-delay 6 --retry-connrefused
         --header "Authorization: Bearer ${ACCESS_TOKEN}"
         "${API_BASE}/hearthstone/cards?locale=${LOCALE}&page=${PAGE}&pageSize=${PAGE_SIZE}&gameMode=${GAMEMODE}&collectible=${COLLECTIBLE}"
     )
-    until "${CURL_CMD[@]}"; do sleep 5; done
+
+    "${CURL_CMD[@]}"
 }
 export -f get_page
 
@@ -128,8 +131,10 @@ for LOCALE in "${LOCALES[@]}"; do
 
         progress 1 $PAGE_COUNT
 
+        JOBS=$(( PAGE_COUNT < MAX_PARALLEL_JOBS ? PAGE_COUNT : MAX_PARALLEL_JOBS ))
+
         # ─── Download remaining pages in parallel ───────────------------------
-        parallel -j "${PAGE_COUNT}" save_page "${LOCALE}" {} "${GAMEMODE}" ::: $(seq 2 "${PAGE_COUNT}") &
+        parallel -j "${JOBS}" save_page "${LOCALE}" {} "${GAMEMODE}" ::: $(seq 2 "${PAGE_COUNT}") &
 
         PARALLEL_PID=$!
 

@@ -13,6 +13,7 @@ from pathlib import Path
 class PseudoPropertyKind(Enum):
     ANY = "ANY"
     ARRAY = "ARRAY"
+    DICT = "DICT"
     OBJECT = "OBJECT"
     SCALAR = "SCALAR"
 
@@ -38,7 +39,10 @@ class PseudoClass:
     properties: list[PseudoProperty] = field(default_factory=list)
 
 
-def resolve_type(propname: str, proptype: list, classes: list) -> PseudoPropertyType:
+def resolve_type(
+    propname: str, proptype: list, classes: list, parent_name: str
+) -> PseudoPropertyType:
+
     is_nullable = not proptype or "null" in proptype
     types = [t for t in proptype if t != "null"]
 
@@ -56,14 +60,14 @@ def resolve_type(propname: str, proptype: list, classes: list) -> PseudoProperty
     # single array
     if len(arrays) == 1 and not scalars and not objects:
         array = arrays[0]
-        inner = resolve_type(propname, array, classes)
+        inner = resolve_type(propname, array, classes, parent_name)
         return PseudoPropertyType(
             kind=PseudoPropertyKind.ARRAY, type=inner, nullable=is_nullable
         )
 
     # single object
     if len(objects) == 1 and not scalars and not arrays:
-        nested_name = propname
+        nested_name = f"{parent_name}_{propname}"
         nested_props = objects[0]["props"]
         nested_class = schema_to_class(nested_name, nested_props, classes)
         classes.append(nested_class)
@@ -76,7 +80,9 @@ def resolve_type(propname: str, proptype: list, classes: list) -> PseudoProperty
         kind=PseudoPropertyKind.ANY,
         type="any",
         nullable=is_nullable,
-        possible_types=[resolve_type(propname, [t], classes) for t in types],
+        possible_types=[
+            resolve_type(propname, [t], classes, parent_name) for t in types
+        ],
     )
 
 
@@ -88,7 +94,7 @@ def schema_to_class(class_name: str, class_props: list, classes: list) -> Pseudo
         proptype = prop["proptype"]
         missing = prop["missing"]
 
-        pseudo_type = resolve_type(propname, proptype, classes)
+        pseudo_type = resolve_type(propname, proptype, classes, class_name)
 
         cls.properties.append(
             PseudoProperty(propname=propname, proptype=pseudo_type, missing=missing)
@@ -97,7 +103,7 @@ def schema_to_class(class_name: str, class_props: list, classes: list) -> Pseudo
     return cls
 
 
-def validate_class_name(ctx, param, value):
+def validate_class_name(ctx, param, value: str) -> str:
     if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", value):
         raise click.BadParameter(
             "Class name must start with a letter and contain only letters, numbers and underscores."
@@ -106,25 +112,79 @@ def validate_class_name(ctx, param, value):
 
 
 def print_debug(classes: list):
-    title = " Class Schematics "
-    title_length = (80 - len(title) - 1) // 2
-    print(f"╔{"═" * title_length}{title}{"═" * title_length}╗")
+    debug_template_path = Path(__file__).parent / "templates" / "debug.j2"
+    env = Environment(
+        loader=FileSystemLoader(str(debug_template_path.parent)),
+        lstrip_blocks=True,
+        trim_blocks=True,
+    )
+
+    tmpl = env.get_template(debug_template_path.name)
+
+    debug_classes = [
+        {
+            "name": cls.name,
+            "json_str": json.dumps(
+                asdict(cls),
+                indent=2,
+                default=lambda o: o.value if isinstance(o, Enum) else str(o),
+            ),
+        }
+        for cls in classes
+    ]
+
+    print(tmpl.render(classes=debug_classes))
+    print()
+
+
+def load_config(path: str | None) -> dict:
+    if path is None:
+        return {}
+    with open(path) as f:
+        config = json.load(f)
+    if not isinstance(config, dict):
+        raise click.ClickException("Config file must be a JSON object.")
+    return config
+
+
+def validate_substitutions(subs) -> dict[str, str]:
+    is_dict = isinstance(subs, dict)
+    all_str = all(isinstance(k, str) and isinstance(v, str) for k, v in subs.items())
+    if not is_dict or not all_str:
+        raise click.ClickException(
+            "'substitutions' must be a JSON object of {generated_name: custom_name} string pairs."
+        )
+    return subs
+
+
+def substitute_property_names(proptype: PseudoPropertyType, subs: dict[str, str]):
+    match proptype.kind:
+        case PseudoPropertyKind.OBJECT:
+            proptype.type = subs.get(proptype.type, proptype.type)
+        case PseudoPropertyKind.ARRAY:
+            substitute_property_names(proptype.type, subs)
+        case PseudoPropertyKind.ANY:
+            for pt in proptype.possible_types:
+                substitute_property_names(pt, subs)
+
+
+def substitute_object_names(classes: list[PseudoClass], subs: dict[str, str]):
+    class_names = {cls.name for cls in classes}
+
     for cls in classes:
-        prefix = "╠══ "
-        prefix_length = len(prefix)
-        class_name = f"{prefix}{cls.name} "
-        class_name_length = 80 - len(class_name) - 1
-        print(f"{class_name}{"═" * class_name_length}{"╣"}")
-        json_str = json.dumps(
-            asdict(cls),
-            indent=2,
-            default=lambda o: o.value if isinstance(o, Enum) else str(o),
-        )
-        indented = "\n".join(
-            f"{" " * prefix_length}{line}" for line in json_str.splitlines()
-        )
-        print(indented)
-    print(f"╚{"═" * 78}╝\n")
+        if cls.name in subs:
+            new_name = subs[cls.name]
+            if new_name in class_names and new_name != cls.name:
+                raise click.ClickException(
+                    f"Rename collision: '{new_name}' is already used by another class."
+                )
+            class_names.discard(cls.name)
+            class_names.add(new_name)
+            cls.name = new_name
+
+    for cls in classes:
+        for prop in cls.properties:
+            substitute_property_names(prop.proptype, subs)
 
 
 @click.command()
@@ -133,6 +193,13 @@ def print_debug(classes: list):
     required=True,
     type=click.Path(exists=True, readable=True, dir_okay=False),
     help="Jinja2 template file",
+)
+@click.option(
+    "--config",
+    required=False,
+    type=click.Path(exists=True, readable=True, dir_okay=False),
+    default=None,
+    help="JSON configuration file",
 )
 @click.option(
     "--input",
@@ -160,13 +227,15 @@ def print_debug(classes: list):
     default=False,
     help="Print debug information",
 )
-def main(template, input, output, class_name, debug):
+def main(template, config, input, output, class_name, debug):
+    cfg = load_config(config)
+
     with open(input) as f:
         schema = json.load(f)
 
     root_schema = schema[0] if isinstance(schema, list) and len(schema) == 1 else schema
 
-    if not isinstance(root_schema, dict) and not "props" in root_schema:
+    if not (isinstance(root_schema, dict) and "props" in root_schema):
         raise click.ClickException("Invalid schema format")
 
     class_props = root_schema["props"]
@@ -177,6 +246,10 @@ def main(template, input, output, class_name, debug):
 
     if debug:
         print_debug(classes=classes)
+
+    if "substitutions" in cfg:
+        subs = cfg["substitutions"]
+        substitute_object_names(classes, validate_substitutions(subs))
 
     template_path = Path(template)
     env = Environment(

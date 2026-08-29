@@ -1,0 +1,10 @@
+{% set title = " Class Schematics " %}
+{% set title_pad = (80 - title | length - 1) // 2 %}
+╔{{ '═' * title_pad }}{{ title }}{{ '═' * title_pad }}╗
+{% for cls in classes %}
+{% set class_header = "╠══ " ~ cls.name ~ " " %}
+{% set bar_length = 80 - class_header | length - 1 %}
+{{ class_header }}{{ '═' * bar_length }}╣
+{{ cls.json_str | indent(4, first=true) }}
+{% endfor %}
+╚{{ '═' * 78 }}╝

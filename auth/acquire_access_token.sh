@@ -20,11 +20,20 @@ CLIENT_ID="${BLIZZARD_CLIENT_ID:?Please set BLIZZARD_CLIENT_ID}"
 CLIENT_SECRET="${BLIZZARD_CLIENT_SECRET:?Please set BLIZZARD_CLIENT_SECRET}"
 REGION="${BLIZZARD_REGION:-us}"
 
-# ─── Service URL ─────────────────────────────────────────────────────---------
+# ─── Service URL ──────────────────────────────────────────────────────────────
 AUTH_URL="https://${REGION}.battle.net/oauth/token"
 
 # ─── Acquire access token ─────────────────────────────────────────────────────
-AUTH_RESPONSE=$(curl --silent --fail --data "grant_type=client_credentials" --user "${CLIENT_ID}:${CLIENT_SECRET}" "${AUTH_URL}")
+AUTH_CMD=(
+    curl
+    --silent --fail
+    --retry 10 --retry-delay 6 --retry-connrefused
+    --data "grant_type=client_credentials"
+    --user "${CLIENT_ID}:${CLIENT_SECRET}"
+    "${AUTH_URL}"
+)
+
+AUTH_RESPONSE=$("${AUTH_CMD[@]}")
 
 ACCESS_TOKEN=$(echo "${AUTH_RESPONSE}" | jq --raw-output '.access_token')
 
