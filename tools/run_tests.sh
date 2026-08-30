@@ -2,8 +2,13 @@
 
 set -euo pipefail
 
+source "${PROJECT_DIR}/common/common.sh"
+
 tput civis
 trap 'tput cnorm' EXIT INT TERM
+
+# ─── Dependencies ─────────────────────────────────────────────────────────────
+require_commands diff
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 SCRIPT="${1:?Please provide a script to be test}"
@@ -12,10 +17,6 @@ TESTS_DIR="${PROJECT_DIR}/tests/${SCRIPT_NAME}"
 PASS=0
 FAIL=0
 SKIP=0
-
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-RESET='\033[0m'
 
 readarray -t json_files < <(ls -v "${TESTS_DIR}"/*.json)
 

@@ -1,5 +1,5 @@
 {
-  "substitutions": {
+  "renames": {
     "level0_level1_level2_level3_level4_obj": "status",
     "level0_level1_empty_obj": "empty"
   }

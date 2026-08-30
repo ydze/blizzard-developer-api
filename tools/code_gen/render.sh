@@ -2,17 +2,15 @@
 
 set -euo pipefail
 
+source "${PROJECT_DIR}/common/common.sh"
+
 tput civis
 trap 'tput cnorm; rm -f "${SCHEMA_FILE:-}"' EXIT INT TERM
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
-for CMD in python3; do
-    if ! command -v "${CMD}" &> /dev/null; then
-        echo "Required command '${CMD}' is not installed." >&2
-        exit 1
-    fi
-done
+require_commands python3
 
+# ─── Configuration ────────────────────────────────────────────────────────────
 VENV_DIR="$(dirname "$0")/.venv"
 ACTIVATE="${VENV_DIR}/bin/activate"
 RENDER_SCRIPT="$(dirname "$0")/render.py"

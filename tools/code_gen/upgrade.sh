@@ -2,17 +2,15 @@
 
 set -euo pipefail
 
+source "${PROJECT_DIR}/common/common.sh"
+
 tput civis
 trap 'tput cnorm' EXIT INT TERM
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
-for CMD in pip3; do
-    if ! command -v "${CMD}" &> /dev/null; then
-        echo "Required command '${CMD}' is not installed." >&2
-        exit 1
-    fi
-done
+require_commands pip3
 
+# ─── Configuration ────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(dirname "$0")"
 VENV_DIR="${SCRIPT_DIR}/.venv"
 ACTIVATE="${VENV_DIR}/bin/activate"

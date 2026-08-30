@@ -2,12 +2,13 @@
 
 set -euo pipefail
 
+source "${PROJECT_DIR}/common/common.sh"
+
 tput civis
 trap 'tput cnorm' EXIT INT TERM
 
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-RESET='\033[0m'
+# ─── Dependencies ─────────────────────────────────────────────────────────────
+require_commands jq
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 JSON_FILE="${1:?Please provide a JSON file}"
