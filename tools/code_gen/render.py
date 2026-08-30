@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from codegen import Render, Paths
+from codegen import render, paths
 
 from pathlib import Path
 
@@ -10,7 +10,7 @@ import click
 import json
 import re
 
-Paths.configure(Path(__file__).resolve().parent)
+paths.configure(Path(__file__).resolve().parent)
 
 
 def validate_class_name(ctx, param, value: str) -> str:
@@ -63,7 +63,7 @@ def main(template, config, input, output, class_name, debug):
     with open(input) as f:
         schema = json.load(f)
 
-    result = Render.render(template, config, schema, class_name, debug)
+    result = render.render(template, config, schema, class_name, debug)
 
     if output is None:
         click.echo(result)

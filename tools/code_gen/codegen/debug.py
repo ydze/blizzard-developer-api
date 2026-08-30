@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from codegen.Models import PseudoClass
-from codegen import Paths
+from codegen.models import PseudoClass
+from codegen import paths
 
 from dataclasses import asdict
 from enum import Enum
@@ -13,7 +13,7 @@ import json
 
 
 def print_debug(classes: list[PseudoClass]):
-    debug_template_path = Paths.TEMPLATES_DIR / "debug.j2"
+    debug_template_path = paths.TEMPLATES_DIR / "debug.j2"
     env = Environment(
         loader=FileSystemLoader(str(debug_template_path.parent)),
         lstrip_blocks=True,

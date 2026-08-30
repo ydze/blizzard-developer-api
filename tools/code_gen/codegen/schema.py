@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from codegen.Models import PseudoClass, PseudoProperty, PseudoPropertyType, PseudoPropertyKind
+from codegen.models import PseudoClass, PseudoProperty, PseudoPropertyType, PseudoPropertyKind
 
 
 def to_type(propname: str, proptype: list, classes: list[PseudoClass], parent_name: str) -> PseudoPropertyType:
