@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from codegen import config, debug, schema
+from codegen import config, debug, renames, schema
 
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
@@ -11,10 +11,24 @@ import click
 import inflection
 
 
+def normalize_schema(schema):
+    if isinstance(schema, list) and len(schema) == 1:
+        return schema[0]
+
+    if isinstance(schema, dict) and "props" in schema:
+        return schema
+
+    raise click.ClickException("Invalid schema format")
+
+
+def apply_config(cfg: dict, classes: list):
+    if "renames" in cfg:
+        subs = cfg["renames"]
+        renames.rename_class_names(classes, config.validate_renames(subs))
+
+
 def render(template_path: str, config_path: str, json_schema, class_name: str, debug_enabled: bool) -> str:
-    json_schema = json_schema[0] if isinstance(json_schema, list) and len(json_schema) == 1 else json_schema
-    if not (isinstance(json_schema, dict) and "props" in json_schema):
-        raise click.ClickException("Invalid schema format")
+    json_schema = normalize_schema(json_schema)
 
     cfg = config.load_config(config_path)
 
@@ -24,9 +38,7 @@ def render(template_path: str, config_path: str, json_schema, class_name: str, d
     classes.append(cls)
     classes.reverse()
 
-    if "renames" in cfg:
-        renames = cfg["renames"]
-        config.rename_class_names(classes, config.validate_renames(renames))
+    apply_config(cfg, classes)
 
     if debug_enabled:
         debug.print_debug(classes)
