@@ -5,49 +5,23 @@ set -euo pipefail
 tput civis
 trap 'tput cnorm; rm -rf "${TMP_DIR:-}"' EXIT INT TERM
 
+source "${PROJECT_DIR}/common/common.sh"
+
 # ─── Dependencies ─────────────────────────────────────────────────────────────
-for CMD in curl jq parallel; do
-    if ! command -v "${CMD}" &> /dev/null; then
-        echo "Required command '${CMD}' is not installed." >&2
-        exit 1
-    fi
-done
-
-# ─── Progress Bar ─────────────────────────────────────────────────────────────
-progress() {
-    local CURRENT=$1
-    local TOTAL=$2
-    local WIDTH=50
-    local PERCENT=$(( CURRENT * 100 / TOTAL ))
-    local FILLED=$(( CURRENT * WIDTH / TOTAL ))
-    local EMPTY=$(( WIDTH - FILLED ))
-    local MSG="[$(printf '#%.0s' $(seq 1 $FILLED))$(printf ' %.0s' $(seq 1 $EMPTY))] ${PERCENT}% (${CURRENT}/${TOTAL})"
-    local PAD=$(( 80 - ${#MSG} ))
-
-    printf "\r%s%${PAD}s" "${MSG}" ""
-}
+require_commands curl jq parallel
 
 # ─── Configuration ────────────────────────────────────────────────────────────
-REGION="${BLIZZARD_REGION:-us}"
-PAGE_SIZE=400
-OUTPUT_FILE="hearthstone_cards.json"
+CONFIG_FILE="${PROJECT_DIR}/common/config.json"
 MAX_PARALLEL_JOBS=30
+OUTPUT_FILE="hearthstone_cards.json"
+PAGE_SIZE=400
+REGION="${BLIZZARD_REGION:-us}"
 
 # ─── Available locales ────────────────────────────────────────────────────────
-if [[ -z "${BLIZZARD_LOCALE:-}" ]]; then
-    echo "BLIZZARD_LOCALE not set, downloading all locales..."
-    LOCALES=("en_US" "es_MX" "pt_BR" "de_DE" "en_GB" "es_ES" "fr_FR" "it_IT" "pl_PL" "ru_RU" "ja_JP" "ko_KR" "th_TH" "zh_TW" "zh_CN")
-else
-    LOCALES=("${BLIZZARD_LOCALE}")
-fi
+load_locales "${CONFIG_FILE}"
 
 # ─── Available game modes ─────────────────────────────────────────────────────
-if [[ -z "${BLIZZARD_GAMEMODE:-}" ]]; then
-    echo "BLIZZARD_GAMEMODE not set, downloading all gamemodes..."
-    GAMEMODES=("constructed" "battlegrounds" "arena" "duels" "standard" "classic" "mercenaries")
-else
-    GAMEMODES=("${BLIZZARD_GAMEMODE}")
-fi
+load_gamemodes "${CONFIG_FILE}"
 
 # ─── Collectible filter ───────────────────────────────────────────────────────
 case "${BLIZZARD_COLLECTIBLE:-all}" in
@@ -62,16 +36,12 @@ esac
 API_BASE="https://${REGION}.api.blizzard.com"
 
 # ─── Acquire access token ─────────────────────────────────────────────────────
-echo "Acquiring access token..."
+ACCESS_TOKEN=$(bash "${PROJECT_DIR}/auth/acquire_access_token.sh")
 
-ACCESS_TOKEN=$(bash "$(dirname "$0")/acquire_access_token.sh")
-
-echo "Access token acquired."
-
-# ─── Make temp dir ------------------------------------------------------------
+# ─── Make temp dir ────────────────────────────────────────────────────────────
 TMP_DIR=$(mktemp -d)
 
-# --- Fetch a single Hearthstone cards page ------------------------------------
+# ─── Fetch a single Hearthstone cards page ────────────────────────────────────
 get_page() {
     local LOCALE=$1
     local PAGE=$2
@@ -94,19 +64,18 @@ save_page() {
     local PAGE=$2
     local GAMEMODE=$3
 
-    get_page "${LOCALE}" "${PAGE}" "${GAMEMODE}" \
-    | jq '.cards' > "${TMP_DIR}/${LOCALE}_${GAMEMODE}_page_${PAGE}.json"
+    get_page "${LOCALE}" "${PAGE}" "${GAMEMODE}" | jq '.cards' > "${TMP_DIR}/${LOCALE}_${GAMEMODE}_page_${PAGE}.json"
 }
 export -f save_page
 
 export ACCESS_TOKEN API_BASE PAGE_SIZE COLLECTIBLE TMP_DIR
 
-# --- Hearthstone cards download loop ------------------------------------------
+# ─── Hearthstone cards download loop ──────────────────────────────────────────
 for LOCALE in "${LOCALES[@]}"; do
 
     for GAMEMODE in "${GAMEMODES[@]}"; do
 
-        # ─── Download first page and get total page count ────────────────────-
+        # ─── Download first page and get total page count ─────────────────────
         echo "Downloading page 1 for gamemode ${GAMEMODE}, locale ${LOCALE}..."
 
         FIRST_PAGE=$(get_page "${LOCALE}" 1 "${GAMEMODE}")
@@ -119,7 +88,7 @@ for LOCALE in "${LOCALES[@]}"; do
         fi
 
         if [[ "${PAGE_COUNT}" == "0" ]]; then
-            echo "No cards found for gamemode ${GAMEMODE}, locale ${LOCALE}, skipping..."
+            echo -e "${YELLOW}No cards found for gamemode ${GAMEMODE}, locale ${LOCALE}, skipping...${RESET}"
             continue
         else
             echo "Total pages: ${PAGE_COUNT}"
@@ -133,7 +102,7 @@ for LOCALE in "${LOCALES[@]}"; do
 
         JOBS=$(( PAGE_COUNT < MAX_PARALLEL_JOBS ? PAGE_COUNT : MAX_PARALLEL_JOBS ))
 
-        # ─── Download remaining pages in parallel ───────────------------------
+        # ─── Download remaining pages in parallel ─────────────────────────────
         parallel -j "${JOBS}" save_page "${LOCALE}" {} "${GAMEMODE}" ::: $(seq 2 "${PAGE_COUNT}") &
 
         PARALLEL_PID=$!
@@ -155,5 +124,5 @@ for LOCALE in "${LOCALES[@]}"; do
     jq --slurp 'add' "${TMP_DIR}"/${LOCALE}_*_page_*.json > "${SAVED_FILE}"
 
     CARD_COUNT=$(jq 'length' "${SAVED_FILE}")
-    echo -e "Saved ${SAVED_FILE} (${CARD_COUNT} cards).\n"
+    echo -e "${GREEN}Saved ${SAVED_FILE} (${CARD_COUNT} cards).${RESET}\n"
 done

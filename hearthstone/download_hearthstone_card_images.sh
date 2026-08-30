@@ -7,14 +7,17 @@ TEMP_FILES=()
 tput civis
 trap 'tput cnorm; [[ ${#TEMP_FILES[@]} -gt 0 ]] && rm -f "${TEMP_FILES[@]}"' EXIT INT TERM
 
-# ─── Dependencies ─────────────────────────────────────────────────────────────
-for CMD in curl jq parallel; do
-    if ! command -v "${CMD}" &> /dev/null; then
-        echo "Required command '${CMD}' is not installed." >&2
-        exit 1
-    fi
-done
+source "${PROJECT_DIR}/common/common.sh"
 
+# ─── Dependencies ─────────────────────────────────────────────────────────────
+require_commands curl jq parallel
+
+# ─── Configuration ────────────────────────────────────────────────────────────
+CONFIG_FILE="${PROJECT_DIR}/common/config.json"
+DATA_DIR="${PROJECT_DIR}/data/hearthstone"
+DATA_FILE="hearthstone_cards.json"
+IMAGES_DIR="${PROJECT_DIR}/assets/hearthstone/card_images"
+PARALLEL_JOBS=150
 SHOW_FAILED=false
 
 OPTS=$(getopt -o "" --long show-failed -n "$(basename "$0")" -- "$@")
@@ -30,33 +33,8 @@ while true; do
     esac
 done
 
-# ─── Progress Bar ─────────────────────────────────────────────────────────────
-progress() {
-    local CURRENT=$1
-    local TOTAL=$2
-    local WIDTH=50
-    local PERCENT=$(( CURRENT * 100 / TOTAL ))
-    local FILLED=$(( CURRENT * WIDTH / TOTAL ))
-    local EMPTY=$(( WIDTH - FILLED ))
-    local MSG="[$(printf '#%.0s' $(seq 1 $FILLED))$(printf ' %.0s' $(seq 1 $EMPTY))] ${PERCENT}% (${CURRENT}/${TOTAL})"
-    local PAD=$(( 80 - ${#MSG} ))
-
-    printf "\r%s%${PAD}s" "${MSG}" ""
-}
-
-# ─── Configuration ────────────────────────────────────────────────────────────
-DATA_DIR="${PROJECT_DIR}/data/hearthstone"
-DATA_FILE="hearthstone_cards.json"
-IMAGES_DIR="${PROJECT_DIR}/assets/hearthstone/card_images"
-PARALLEL_JOBS=150
-
 # ─── Available locales ────────────────────────────────────────────────────────
-if [[ -z "${BLIZZARD_LOCALE:-}" ]]; then
-    echo "BLIZZARD_LOCALE not set, downloading all locales..."
-    LOCALES=("en_US" "es_MX" "pt_BR" "de_DE" "en_GB" "es_ES" "fr_FR" "it_IT" "pl_PL" "ru_RU" "ja_JP" "ko_KR" "th_TH" "zh_TW" "zh_CN")
-else
-    LOCALES=("${BLIZZARD_LOCALE}")
-fi
+load_locales "${CONFIG_FILE}"
 
 # ─── Save Hearthstone cards image ─────────────────────────────────────────────
 save_image() {
@@ -83,7 +61,7 @@ TEMP_FILES+=("${FAILED_URLS_FILE}")
 
 export FAILED_URLS_FILE
 
-# --- Hearthstone card images download loop ------------------------------------
+# ─── Hearthstone card images download loop ────────────────────────────────────
 for LOCALE in "${LOCALES[@]}"; do
 
     CARDS_FILE="${DATA_DIR}/${LOCALE}/${DATA_FILE}"
@@ -130,7 +108,7 @@ for LOCALE in "${LOCALES[@]}"; do
 done
 
 # ─── Display errors ───────────────────────────────────────────────────────────
-if [[ "${SHOW_FAILED}" == "true" ]] && [[ -s "${FAILED_URLS_FILE}" ]]; then
+if [[ "${SHOW_FAILED}" == true ]] && [[ -s "${FAILED_URLS_FILE}" ]]; then
     echo "Failed images:" >&2
     cat "${FAILED_URLS_FILE}" >&2
 fi

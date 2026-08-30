@@ -2,13 +2,10 @@
 
 set -euo pipefail
 
+source "${PROJECT_DIR}/common/common.sh"
+
 # ─── Dependencies ─────────────────────────────────────────────────────────────
-for CMD in curl jq; do
-    if ! command -v "${CMD}" &> /dev/null; then
-        echo "Required command '${CMD}' is not installed." >&2
-        exit 1
-    fi
-done
+require_commands curl jq
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 # CSPROJ="${CSPROJ_PATH:?Please set CSPROJ_PATH}"
@@ -33,6 +30,8 @@ AUTH_CMD=(
     "${AUTH_URL}"
 )
 
+echo "Acquiring access token..." >&2
+
 AUTH_RESPONSE=$("${AUTH_CMD[@]}")
 
 ACCESS_TOKEN=$(echo "${AUTH_RESPONSE}" | jq --raw-output '.access_token')
@@ -40,6 +39,8 @@ ACCESS_TOKEN=$(echo "${AUTH_RESPONSE}" | jq --raw-output '.access_token')
 if [[ -z "${ACCESS_TOKEN}" || "${ACCESS_TOKEN}" == "null" ]]; then
     echo "Failed to acquire access token." >&2
     exit 1
+else
+    echo "Access token acquired." >&2
 fi
 
 echo "${ACCESS_TOKEN}"

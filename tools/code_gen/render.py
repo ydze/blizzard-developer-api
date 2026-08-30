@@ -245,12 +245,12 @@ def main(template, config, input, output, class_name, debug):
     classes.append(root)
     classes.reverse()
 
-    if debug:
-        print_debug(classes=classes)
-
     if "substitutions" in cfg:
         subs = cfg["substitutions"]
         substitute_object_names(classes, validate_substitutions(subs))
+
+    if debug:
+        print_debug(classes=classes)
 
     template_path = Path(template)
     env = Environment(
