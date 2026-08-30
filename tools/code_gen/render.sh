@@ -58,9 +58,11 @@ if [[ "${HELP}" == true ]]; then
 fi
 
 # ─── Extract JSON file schema ─────────────────────────────────────────────────
+JSON_FILE="${1:?Please provide a JSON file}"
+
 SCHEMA_FILE=$(mktemp)
 
-"${PROJECT_DIR}"/tools/extract_schema/extract_schema.sh -f raw "$1" > "${SCHEMA_FILE}"
+"${PROJECT_DIR}"/tools/extract_schema/extract_schema.sh -f raw "${JSON_FILE}" > "${SCHEMA_FILE}"
 
 # ─── Invoke code generator ────────────────────────────────────────────────────
 PY_CMD=(
