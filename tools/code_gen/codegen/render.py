@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from codegen import config, debug, renames, schema
+from codegen.config import load_config, validate_dictionaries, validate_renames
+from codegen.debug import print_debug
+from codegen.dictionaries import apply_dictionaries
+from codegen.renames import apply_renames
+from codegen.schema import to_class
 
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
@@ -22,35 +26,39 @@ def normalize_schema(schema):
 
 
 def apply_config(cfg: dict, classes: list):
+    if "dictionaries" in cfg:
+        names = cfg["dictionaries"]
+        apply_dictionaries(classes, validate_dictionaries(names))
+
     if "renames" in cfg:
-        subs = cfg["renames"]
-        renames.rename_class_names(classes, config.validate_renames(subs))
+        renames = cfg["renames"]
+        apply_renames(classes, validate_renames(renames))
 
 
-def render(template_path: str, config_path: str, json_schema, class_name: str, debug_enabled: bool) -> str:
-    json_schema = normalize_schema(json_schema)
+def render(template: str, config: str, schema, class_name: str, debug: bool) -> str:
+    schema = normalize_schema(schema)
 
-    cfg = config.load_config(config_path)
+    cfg = load_config(config)
 
-    class_props = json_schema["props"]
+    class_props = schema["props"]
     classes = []
-    cls = schema.to_class(class_name, class_props, classes)
+    cls = to_class(class_name, class_props, classes)
     classes.append(cls)
     classes.reverse()
 
     apply_config(cfg, classes)
 
-    if debug_enabled:
-        debug.print_debug(classes)
+    if debug:
+        print_debug(classes)
 
-    template = Path(template_path)
+    template_path = Path(template)
     env = Environment(
-        loader=FileSystemLoader(str(template.parent)),
+        loader=FileSystemLoader(str(template_path.parent)),
         lstrip_blocks=True,
         trim_blocks=True,
     )
     env.filters["camelize"] = inflection.camelize
 
-    tmpl = env.get_template(template.name)
+    tmpl = env.get_template(template_path.name)
     result = tmpl.render(classes=classes).strip()
     return result

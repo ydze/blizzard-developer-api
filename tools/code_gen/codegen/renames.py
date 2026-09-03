@@ -2,23 +2,28 @@
 
 from __future__ import annotations
 
-from codegen.models import PseudoClass, PseudoProperty, PseudoPropertyType, PseudoPropertyKind
+from codegen.models import PseudoClass, PseudoPropertyType, PseudoPropertyKind
 
 import click
 
 
-def rename_property_names(proptype: PseudoPropertyType, renames: dict[str, str]):
+def _rename_property_names(proptype: PseudoPropertyType, renames: dict[str, str]):
     match proptype.kind:
         case PseudoPropertyKind.OBJECT:
             proptype.type = renames.get(proptype.type, proptype.type)
+
         case PseudoPropertyKind.ARRAY:
-            rename_property_names(proptype.type, renames)
+            _rename_property_names(proptype.type, renames)
+
         case PseudoPropertyKind.ANY:
             for pt in proptype.possible_types:
-                rename_property_names(pt, renames)
+                _rename_property_names(pt, renames)
+
+        case PseudoPropertyKind.DICT:
+            _rename_property_names(proptype.type.value_type, renames)
 
 
-def rename_class_names(classes: list[PseudoClass], renames: dict[str, str]):
+def _rename_class_names(classes: list[PseudoClass], renames: dict[str, str]):
     class_names = {cls.name for cls in classes}
 
     for cls in classes:
@@ -32,4 +37,8 @@ def rename_class_names(classes: list[PseudoClass], renames: dict[str, str]):
 
     for cls in classes:
         for prop in cls.properties:
-            rename_property_names(prop.proptype, renames)
+            _rename_property_names(prop.proptype, renames)
+
+
+def apply_renames(classes: list[PseudoClass], renames: dict[str, str]):
+    _rename_class_names(classes, renames)

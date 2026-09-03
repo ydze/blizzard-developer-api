@@ -8,6 +8,7 @@
   {%- endif -%}
 {%- elif proptype.kind.value == "ARRAY" -%}{{ csharp_type(proptype.type) }}[]
 {%- elif proptype.kind.value == "OBJECT" -%}{{ proptype.type | camelize }}
+{%- elif proptype.kind.value == "DICT" -%}Dictionary<string, {{ csharp_type(proptype.type.value_type) }}>
 {%- elif proptype.kind.value == "ANY" -%}dynamic
 {%- endif -%}
 {%- endmacro %}
@@ -26,6 +27,7 @@
 {%- if proptype.possible_types | length > 0 -%}true
 {%- elif is_empty_array(proptype) == "true" -%}true
 {%- elif proptype.kind.value == "ARRAY" -%}{{ comment_required(proptype.type) }}
+{%- elif proptype.kind.value == "DICT" -%}true
 {%- else -%}false
 {%- endif -%}
 {%- endmacro %}
@@ -41,6 +43,7 @@
     {%- endfor -%}
   {%- endif -%}
 {%- elif proptype.kind.value == "OBJECT" -%}<see cref="{{ proptype.type | camelize }}"/>
+{%- elif proptype.kind.value == "DICT" -%}Dictionary&lt;string, {{ format_type(proptype.type.value_type) }}&gt;
 {%- else -%}{{ proptype.type }}
 {%- endif -%}
 {%- endmacro %}
@@ -52,7 +55,12 @@ public class {{ cls.name | camelize }}
     {% for prop in cls.properties %}
     {% if comment_required(prop.proptype) == "true" %}
     /// <summary>
+    {% if prop.proptype.kind.value == "DICT" %}
+    /// Keys: {{ prop.proptype.type.possible_keys | join(", ") }}.
+    /// Type of Value: {{ format_type(prop.proptype.type.value_type) }}
+    {% else %}
     /// Can be: {{ format_type(prop.proptype) }}
+    {% endif %}
     /// </summary>
     {% endif %}
     public {{ csharp_type(prop.proptype) }}{{ nullable_suffix(prop.proptype, prop.missing) }} {{ prop.propname | camelize }} { get; set; }

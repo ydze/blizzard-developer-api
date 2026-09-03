@@ -22,3 +22,11 @@ def validate_renames(renames) -> dict[str, str]:
     if not is_dict or not all_str:
         raise click.ClickException("'renames' must be a JSON object of {generated_name: custom_name} string pairs.")
     return renames
+
+
+def validate_dictionaries(names) -> list[str]:
+    is_list = isinstance(names, list)
+    all_str = all(isinstance(n, str) for n in names) if is_list else False
+    if not is_list or not all_str:
+        raise click.ClickException("'dictionaries' must be a JSON array of class name strings.")
+    return names

@@ -1,81 +1,12 @@
-[
-  {
-    "name": "test",
-    "level1": {
-      "num": 9000,
-      "str": "hello",
-      "arr": [
-        1,
-        "two",
-        true
-      ],
-      "empty_arr": [],
-      "empty_obj": {},
-      "level2": {
-        "bool": false,
-        "arr": [
-          1,
-          2,
-          3
-        ],
-        "mixed": "hello",
-        "level3": {
-          "num": 42,
-          "nested_arr": [
-            [
-              1,
-              2
-            ],
-            [
-              3,
-              4
-            ]
-          ],
-          "empty_arr": [],
-          "level4": {
-            "str": "deep",
-            "arr": [
-              true,
-              false
-            ],
-            "obj": {
-              "bool": true
-            }
-          }
-        }
-      }
-    }
-  },
-  {
-    "name": null,
-    "level1": {
-      "num": null,
-      "str": null,
-      "arr": [
-        "three",
-        4
-      ],
-      "empty_arr": [],
-      "level2": {
-        "bool": true,
-        "arr": [],
-        "mixed": 9000,
-        "level3": {
-          "num": null,
-          "nested_arr": [
-            [
-              5,
-              "six"
-            ]
-          ],
-          "empty_arr": [
-            [
-              []
-            ]
-          ],
-          "level4": null
-        }
-      }
+{
+  "obj": {
+    "key1": {
+      "id": 1,
+      "name": "one"
+    },
+    "key2": {
+      "id": 2,
+      "name": "two"
     }
   }
-]
+}
