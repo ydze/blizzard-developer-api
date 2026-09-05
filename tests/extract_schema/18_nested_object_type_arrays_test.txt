@@ -1,8 +1,0 @@
-[
-  [
-    {
-      num: integer,
-      str: string?
-    }
-  ]
-]

@@ -1,8 +1,0 @@
-{
-  arr: [
-    {
-      num: integer?,
-      str: string?
-    }
-  ]
-}

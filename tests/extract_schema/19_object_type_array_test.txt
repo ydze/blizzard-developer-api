@@ -1,6 +1,0 @@
-[
-  {
-    num: integer,
-    str: string
-  }
-]

@@ -1,0 +1,7 @@
+[
+  [ boolean ]?,
+  {
+    nil: null,
+    prop: boolean?
+  }?
+]

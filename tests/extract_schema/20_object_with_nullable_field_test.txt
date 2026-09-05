@@ -1,0 +1,9 @@
+[
+  {
+    prop: {
+      arr: []?,
+      obj: {}?,
+      str: string?
+    }?
+  }
+]

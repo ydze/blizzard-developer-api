@@ -1,7 +1,7 @@
 [
   [
+    float,
     integer,
-    string,
-    []
+    string
   ]
 ]

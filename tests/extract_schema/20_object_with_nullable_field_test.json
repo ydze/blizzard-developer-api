@@ -1,0 +1,23 @@
+[
+  {
+    "prop": null
+  },
+  {
+    "prop": {}
+  },
+  {
+    "prop": {
+      "str": "Hello, World!"
+    }
+  },
+  {
+    "prop": {
+      "arr": []
+    }
+  },
+  {
+    "prop": {
+      "obj": {}
+    }
+  }
+]
