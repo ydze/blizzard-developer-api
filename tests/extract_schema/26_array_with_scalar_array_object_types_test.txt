@@ -1,0 +1,7 @@
+[
+  integer,
+  [ boolean ],
+  {
+    flt: float
+  }
+]

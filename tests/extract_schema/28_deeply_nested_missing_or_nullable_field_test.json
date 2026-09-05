@@ -1,0 +1,21 @@
+[
+  {
+    "level1": {
+      "level2": {
+        "level3": "Hello, World!"
+      }
+    }
+  },
+  {
+    "level1": {
+      "level2": {
+        "level3": null
+      }
+    }
+  },
+  {
+    "level1": {
+      "level2": {}
+    }
+  }
+]
