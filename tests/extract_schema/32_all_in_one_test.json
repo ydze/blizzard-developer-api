@@ -1,0 +1,71 @@
+[
+  {},
+  {
+    "prop": null
+  },
+  {
+    "prop": "Hello, World!"
+  },
+  {
+    "prop": 42
+  },
+  {
+    "prop": 13.37
+  },
+  {
+    "prop": true
+  },
+  {
+    "prop": []
+  },
+  {
+    "prop": [
+      null
+    ]
+  },
+  {
+    "prop": [
+      "Hello, World!",
+      9000,
+      13.37,
+      false,
+      [],
+      [
+        []
+      ],
+      [
+        [
+          [
+            {
+              "int": 42
+            }
+          ]
+        ]
+      ],
+      {},
+      {
+        "str": "Deep Mine"
+      },
+      {
+        "arr": [
+          []
+        ]
+      },
+      {
+        "obj": {
+          "empty_obj": {}
+        }
+      }
+    ]
+  },
+  {
+    "prop": {}
+  },
+  {
+    "prop": {
+      "id": 1,
+      "name": "Kate",
+      "age": 18.9
+    }
+  }
+]

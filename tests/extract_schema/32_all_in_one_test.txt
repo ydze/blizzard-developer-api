@@ -1,0 +1,38 @@
+[
+  {
+    prop: 
+      boolean?,
+      float?,
+      integer?,
+      string?,
+      [
+        boolean?,
+        float?,
+        integer?,
+        string?,
+        [
+          [
+            [
+              {
+                int: integer
+              }
+            ]
+          ]
+        ]?,
+        {
+          arr: [
+            []
+          ]?,
+          obj: {
+            empty_obj: {}
+          }?,
+          str: string?
+        }?
+      ]?,
+      {
+        age: float?,
+        id: integer?,
+        name: string?
+      }?
+  }
+]
