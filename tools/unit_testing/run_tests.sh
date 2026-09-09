@@ -18,9 +18,26 @@ PASS=0
 FAIL=0
 SKIP=0
 
+# ─── Default behavior ─────────────────────────────────────────────────────────
+# A tool can override either function by dropping a same-named script next to
+# its own test JSONs (tests/<tool>/run_tests.sh); if present, it's
+# sourced here and its function definitions take over from these defaults.
+run_script() {
+    "${SCRIPT}" "$1"
+}
+
+normalize_output() {
+    cat
+}
+
+HOOK="${TESTS_DIR}/run_tests.sh"
+if [[ -f "${HOOK}" ]]; then
+    source "${HOOK}"
+fi
+
 readarray -t json_files < <(ls -v "${TESTS_DIR}"/*.json)
 
-# --- Run tests ----------------------------------------------------------------
+# ─── Run tests ────────────────────────────────────────────────────────────────
 for json_file in "${json_files[@]}"; do
     test_name=$(basename "${json_file}" .json)
     expected_file="${TESTS_DIR}/${test_name}.txt"
@@ -31,7 +48,8 @@ for json_file in "${json_files[@]}"; do
         continue
     fi
 
-    actual=$("${SCRIPT}" "${json_file}" 2>/dev/null)
+    actual=$(run_script "${json_file}" 2>&1) || true
+    actual=$(echo "${actual}" | normalize_output)
 
     if diff <(echo "${actual}") "${expected_file}"; then
         echo -e "${GREEN}✓ ${test_name}${RESET}"
