@@ -25,7 +25,7 @@ if [[ "${KEY}" =~ ^[[:space:]]*$ ]]; then
     exit 1
 fi
 
-JSON_FILE="${1:?Please provide a JSON file}"
+JSON_FILE="${1:?Provide a JSON file}"
 
 if [[ ! -f "${JSON_FILE}" ]]; then
     echo "File not found: ${JSON_FILE}" >&2

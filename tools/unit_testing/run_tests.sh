@@ -11,7 +11,7 @@ trap 'tput cnorm' EXIT INT TERM
 require_commands diff
 
 # ─── Configuration ────────────────────────────────────────────────────────────
-SCRIPT="${1:?Please provide a script to be test}"
+SCRIPT="${1:?Provide a script to be tested}"
 SCRIPT_NAME=$(basename "${SCRIPT}" .sh)
 TESTS_DIR="${PROJECT_DIR}/tests/${SCRIPT_NAME}"
 PASS=0
@@ -19,8 +19,8 @@ FAIL=0
 SKIP=0
 
 # ─── Default behavior ─────────────────────────────────────────────────────────
-# A tool can override either function by dropping a same-named script next to
-# its own test JSONs (tests/<tool>/run_tests.sh); if present, it's
+# A tool can override either function by dropping a script next to
+# its own test JSONs (tests/<tool>/overloads.sh); if present, it's
 # sourced here and its function definitions take over from these defaults.
 run_script() {
     "${SCRIPT}" "$1"
@@ -30,7 +30,7 @@ normalize_output() {
     cat
 }
 
-HOOK="${TESTS_DIR}/run_tests.sh"
+HOOK="${TESTS_DIR}/overloads.sh"
 if [[ -f "${HOOK}" ]]; then
     source "${HOOK}"
 fi

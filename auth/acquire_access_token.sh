@@ -8,13 +8,13 @@ source "${PROJECT_DIR}/common/common.sh"
 require_commands curl jq
 
 # ─── Configuration ────────────────────────────────────────────────────────────
-# CSPROJ="${CSPROJ_PATH:?Please set CSPROJ_PATH}"
+# CSPROJ="${CSPROJ_PATH:?Set CSPROJ_PATH}"
 # SECRETS=$(dotnet user-secrets list --project "${CSPROJ}")
 # CLIENT_ID=$(echo "${SECRETS}" | grep "BlizzardDeveloperAPI:ClientId" | cut -d'=' -f2 | xargs)
 # CLIENT_SECRET=$(echo "${SECRETS}" | grep "BlizzardDeveloperAPI:ClientSecret" | cut -d'=' -f2 | xargs)
 
-CLIENT_ID="${BLIZZARD_CLIENT_ID:?Please set BLIZZARD_CLIENT_ID}"
-CLIENT_SECRET="${BLIZZARD_CLIENT_SECRET:?Please set BLIZZARD_CLIENT_SECRET}"
+CLIENT_ID="${BLIZZARD_CLIENT_ID:?Set BLIZZARD_CLIENT_ID}"
+CLIENT_SECRET="${BLIZZARD_CLIENT_SECRET:?Set BLIZZARD_CLIENT_SECRET}"
 REGION="${BLIZZARD_REGION:-us}"
 
 # ─── Service URL ──────────────────────────────────────────────────────────────

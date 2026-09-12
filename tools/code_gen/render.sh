@@ -56,7 +56,7 @@ if [[ "${HELP}" == true ]]; then
 fi
 
 # ─── Extract JSON file schema ─────────────────────────────────────────────────
-JSON_FILE="${1:?Please provide a JSON file}"
+JSON_FILE="${1:?Provide a JSON file}"
 
 SCHEMA_FILE=$(mktemp)
 

@@ -10,9 +10,9 @@ RESET='\033[0m'
 
 # ─── Check required dependencies ──────────────────────────────────────────────
 require_commands() {
-    for CMD in "$@"; do
-        if ! command -v "${CMD}" &> /dev/null; then
-            echo "Required command '${CMD}' is not installed." >&2
+    for cmd in "$@"; do
+        if ! command -v "${cmd}" &> /dev/null; then
+            echo "Required command '${cmd}' is not installed." >&2
             exit 1
         fi
     done
@@ -21,59 +21,97 @@ require_commands() {
 
 # ─── Load available locales ───────────────────────────────────────────────────
 load_locales() {
-    local CONFIG_FILE="$1"
+    local config_file="$1"
 
     if [[ -n "${BLIZZARD_LOCALE:-}" ]]; then
         LOCALES=("${BLIZZARD_LOCALE}")
         return
     fi
 
-    echo "BLIZZARD_LOCALE not set, pulling locales from ${CONFIG_FILE}..."
+    echo "BLIZZARD_LOCALE not set, pulling locales from ${config_file}..."
 
-    if [[ ! -f "${CONFIG_FILE}" ]]; then
-        echo "Config file not found: ${CONFIG_FILE}" >&2
+    if [[ ! -f "${config_file}" ]]; then
+        echo "Config file not found: ${config_file}" >&2
         exit 1
     fi
 
-    mapfile -t LOCALES < <( jq -r '.locales[]' "${CONFIG_FILE}" | sort -u )
+    mapfile -t LOCALES < <( jq -r '.locales[]' "${config_file}" | sort -u )
 }
 
 
 # ─── Load available gamemodes ─────────────────────────────────────────────────
 load_gamemodes() {
-    local CONFIG_FILE="$1"
+    local config_file="$1"
 
     if [[ -n "${BLIZZARD_GAMEMODE:-}" ]]; then
         GAMEMODES=("${BLIZZARD_GAMEMODE}")
         return
     fi
 
-    echo "BLIZZARD_GAMEMODE not set, pulling gamemodes from ${CONFIG_FILE}..."
+    echo "BLIZZARD_GAMEMODE not set, pulling gamemodes from ${config_file}..."
 
-    if [[ ! -f "${CONFIG_FILE}" ]]; then
-        echo "Config file not found: ${CONFIG_FILE}" >&2
+    if [[ ! -f "${config_file}" ]]; then
+        echo "Config file not found: ${config_file}" >&2
         exit 1
     fi
 
-    mapfile -t GAMEMODES < <( jq -r '.gamemodes[]' "${CONFIG_FILE}" | sort -u )
+    mapfile -t GAMEMODES < <( jq -r '.gamemodes[]' "${config_file}" | sort -u )
 }
 
 
 # ─── Progress Bar ─────────────────────────────────────────────────────────────
 progress() {
-    local CURRENT=$1
-    local TOTAL=$2
-    local WIDTH=50
-    local PERCENT=$(( CURRENT * 100 / TOTAL ))
-    local FILLED=$(( CURRENT * WIDTH / TOTAL ))
-    local EMPTY=$(( WIDTH - FILLED ))
-    local BAR=""
+    local current=$1
+    local total=$2
+    local width=50
+    local percent=$(( current * 100 / total ))
+    local filled=$(( current * width / total ))
+    local empty=$(( width - filled ))
+    local bar=""
 
-    (( FILLED > 0 )) && BAR+=$(printf '#%.0s' $(seq 1 "${FILLED}"))
-    (( EMPTY > 0 )) && BAR+=$(printf ' %.0s' $(seq 1 "${EMPTY}"))
+    (( filled > 0 )) && bar+=$(printf '#%.0s' $(seq 1 "${filled}"))
+    (( empty > 0 )) && bar+=$(printf ' %.0s' $(seq 1 "${empty}"))
 
-    local MSG="[${BAR}] ${PERCENT}% (${CURRENT}/${TOTAL})"
-    local PAD=$(( 80 - ${#MSG} ))
+    local msg="[${bar}] ${percent}% (${current}/${total})"
+    local pad=$(( 80 - ${#msg} ))
 
-    printf "\r%s%${PAD}s" "${MSG}" ""
+    printf "\r%s%${pad}s" "${msg}" ""
+}
+
+
+# ─── Table ────────────────────────────────────────────────────────────────────
+TABLE_WIDTH=80
+LABEL_WIDTH="${LABEL_WIDTH:-18}"
+VALUE_WIDTH=$((TABLE_WIDTH - LABEL_WIDTH - 7))
+PADDING=2
+
+repeat() {
+    local char="$1"
+    local length="$2"
+
+    (( length > 0 )) && printf "${char}%.0s" $(seq 1 "${length}")
+
+    return 0
+}
+
+print_row() {
+    local label="$1"
+    local value="$2"
+
+    printf "│ %-${LABEL_WIDTH}s │ %-${VALUE_WIDTH}s │\n" "${label}" "${value}"
+}
+
+print_title_border() {
+    local title=" $1 "
+    local lspan=$(((TABLE_WIDTH - 2 - ${#title}) / 2))
+    local rspan=$(((TABLE_WIDTH - 2 - ${#title}) - lspan))
+    printf "╭%s%s%s╮\n" "$(repeat ─ "${lspan}")" "${title}" "$(repeat ─ "${rspan}")"
+}
+
+print_top_border() {
+    printf "├%s┬%s┤\n" "$(repeat ─ $((LABEL_WIDTH + PADDING)))" "$(repeat ─ $((VALUE_WIDTH + PADDING)))"
+}
+
+print_bottom_border() {
+    printf "╰%s┴%s╯\n" "$(repeat ─ $((LABEL_WIDTH + PADDING)))" "$(repeat ─ $((VALUE_WIDTH + PADDING)))"
 }
