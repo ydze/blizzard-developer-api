@@ -109,9 +109,9 @@ for LOCALE in "${LOCALES[@]}"; do
 
         # ─── Track progress while pages download ──────────────────────────────
         while kill -0 "${PARALLEL_PID}" 2>/dev/null; do
+            sleep 0.314
             COMPLETED=$(ls "${TMP_DIR}"/${LOCALE}_${GAMEMODE}_page_*.json 2>/dev/null | wc -l)
             progress "${COMPLETED}" "${PAGE_COUNT}"
-            sleep 0.2
         done
 
         wait "${PARALLEL_PID}" && echo

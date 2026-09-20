@@ -6,6 +6,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 RED='\033[0;31m'
 RESET='\033[0m'
+CLEAR_LINE='\033[K'
 
 
 # ─── Check required dependencies ──────────────────────────────────────────────
@@ -73,9 +74,8 @@ progress() {
     (( empty > 0 )) && bar+=$(printf ' %.0s' $(seq 1 "${empty}"))
 
     local msg="[${bar}] ${percent}% (${current}/${total})"
-    local pad=$(( 80 - ${#msg} ))
 
-    printf "\r%s%${pad}s" "${msg}" ""
+    printf "\r${CLEAR_LINE}%s" "${msg}"
 }
 
 

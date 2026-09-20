@@ -1,4 +1,1 @@
-{
-  "id": 1,
-  "b": true
-}
+Invalid input: expected an array of objects — got: object

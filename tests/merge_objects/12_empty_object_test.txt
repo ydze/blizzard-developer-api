@@ -1,1 +1,1 @@
-{}
+Invalid input: expected an array of objects — got: object

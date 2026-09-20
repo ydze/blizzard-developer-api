@@ -18,14 +18,19 @@ def merge_group:
       error("Record \($key)=\($group[0][$key]) has conflicting values for field(s): \($conflicts | join(", "))")
     end;
 
+def describe:
+  if type == "array" then
+    map(type) | unique | join(", ") | "[ \(.) ]"
+  else
+    type | "\(.)"
+  end;
+
 if type == "array" and all(.[]; type == "object") then
   if all(.[]; has($key)) then
     group_by(.[$key]) | map(merge_group)
   else
-    error("Every object must have the key '\($key)', but at least one is missing it.")
+    error("At least one object is missing the key '\($key)'")
   end
-elif type == "object" then
-  .
 else
-  error("Invalid input: expected an array of objects or an object — got: \(type)")
+  error("Invalid input: expected an array of objects — got: \(describe)")
 end

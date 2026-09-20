@@ -94,9 +94,9 @@ for LOCALE in "${LOCALES[@]}"; do
 
     # ─── Track progress while images download ─────────────────────────────────
     while kill -0 "${PARALLEL_PID}" 2>/dev/null; do
+        sleep 0.314
         COMPLETED=$(ls "${CARDS_DIR}" 2>/dev/null | wc -l)
         progress "${COMPLETED}" "${IMAGE_COUNT}"
-        sleep 0.2
     done
 
     wait "${PARALLEL_PID}"
