@@ -96,9 +96,19 @@ repeat() {
 
 print_row() {
     local label="$1"
-    local value="$2"
+    shift
+    local -a items=("$@")
 
-    printf "│ %-${LABEL_WIDTH}s │ %-${VALUE_WIDTH}s │\n" "${label}" "${value}"
+    local draw_label=true
+
+    for item in "${items[@]}"; do
+        if [[ "${draw_label}" == true ]]; then
+            printf "│ %-${LABEL_WIDTH}s │ %-${VALUE_WIDTH}s │\n" "${label}" "${item}"
+            draw_label=false
+        else
+            printf "│ %-${LABEL_WIDTH}s │ %-${VALUE_WIDTH}s │\n" "" "${item}"
+        fi
+    done
 }
 
 print_title_border() {

@@ -59,8 +59,8 @@ if [[ "${ROOT_TYPE}" == "array" ]]; then
     print_row "Array Length" "${ARRAY_LENGTH}"
 
     if [[ "${ARRAY_LENGTH}" -gt 0 ]]; then
-        ELEMENT_TYPES=$(jq -r 'map(type) | group_by(.) | map("\(.[0]) (\(length))") | join(", ")' "${JSON_FILE}")
-        print_row "Element Types" "${ELEMENT_TYPES}"
+        mapfile -t ELEMENT_TYPES < <(jq -r 'map(type) | group_by(.) | map("\(.[0]) (\(length))") | .[]' "${JSON_FILE}")
+        print_row "Element Types" "${ELEMENT_TYPES[@]}"
 
         if [[ -n "${UNIQUE_FIELD}" ]]; then
             if ! jq -e 'all(.[]; type == "object")' "${JSON_FILE}" > /dev/null; then
