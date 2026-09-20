@@ -16,11 +16,11 @@ def extract($container):
 
 def validate($container; $field):
   if . == null then
-    error("Input object does not contain path '\($container | join("/"))'")
+    error("Input object does not contain path '/\($container | join("/"))'")
   elif (type == "array" and all(.[]; type == "object")) | not then
-    error("Input object schema is not uniform: not every element at path '\($container | join("/"))' is an object")
+    error("Input object schema is not uniform: not every element at path '/\($container | join("/"))' is an object")
   elif (all(.[]; has($field))) | not then
-    error("Input object is malformed: not every object at path '\($container | join("/"))' has a field '\($field)'")
+    error("Input object is malformed: not every object at path '/\($container | join("/"))' has a field '\($field)'")
   else
     .
   end;

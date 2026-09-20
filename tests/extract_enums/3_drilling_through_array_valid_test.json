@@ -1,0 +1,6 @@
+{
+  "categories": [
+    {"name": "A", "items": [{"slug": "a1"}, {"slug": "a2"}]},
+    {"name": "B", "items": [{"slug": "b1"}]}
+  ]
+}

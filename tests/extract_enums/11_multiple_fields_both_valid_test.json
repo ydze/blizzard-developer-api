@@ -1,0 +1,4 @@
+{
+  "rarities": [{"slug": "common"}, {"slug": "rare"}],
+  "classes": [{"slug": "mage"}, {"slug": "warrior"}]
+}

@@ -1,0 +1,6 @@
+{
+  "rarities": [
+    {"id": 1, "slug": "common"},
+    {"id": 2, "slug": "rare"}
+  ]
+}

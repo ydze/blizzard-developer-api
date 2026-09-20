@@ -1,0 +1,3 @@
+Cannot generate enum 'id' — path '/id' contains invalid value(s):
+  1,
+  2

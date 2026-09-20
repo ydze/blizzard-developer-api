@@ -1,0 +1,10 @@
+{
+  "rarities_slug": [
+    "common",
+    "rare"
+  ],
+  "classes_slug": [
+    "mage",
+    "warrior"
+  ]
+}

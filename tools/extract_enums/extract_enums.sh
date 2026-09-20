@@ -48,6 +48,11 @@ for path in "${FIELDS[@]}"; do
 
     IFS='/' read -ra RAW <<< "${path}" && PARTS=("${RAW[@]:1}")
 
+    if [[ "${#PARTS[@]}" -lt 1 ]]; then
+        echo "Invalid --field path '${path}': field name is needed — e.g. /field or /section/field" >&2
+        exit 1
+    fi
+
     for part in "${PARTS[@]}"; do
         if [[ -z "${part}" ]]; then
             echo "Invalid --field path '${path}': empty segment — check for a doubled '/'" >&2

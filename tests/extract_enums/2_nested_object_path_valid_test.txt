@@ -1,0 +1,6 @@
+{
+  "rarities_slug": [
+    "common",
+    "rare"
+  ]
+}

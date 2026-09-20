@@ -1,0 +1,1 @@
+Input object is malformed: not every object at path '/items' has a field 'slug'
