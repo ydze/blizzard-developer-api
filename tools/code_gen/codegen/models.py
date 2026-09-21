@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 
 
 class PseudoPropertyKind(Enum):
@@ -47,3 +48,11 @@ class PseudoProperty:
 class PseudoClass:
     name: str
     properties: list[PseudoProperty] = field(default_factory=list)
+
+
+@dataclass
+class CodegenContext:
+    template_path: Path
+    config: dict
+    debug: bool
+    classes: list[PseudoClass] = field(default_factory=list)

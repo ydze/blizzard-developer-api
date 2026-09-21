@@ -26,12 +26,11 @@ source "${ACTIVATE}"
 # ─── Parse options ────────────────────────────────────────────────────────────
 TEMPLATE=""
 CONFIG=""
-CLASS_NAME=""
 OUTPUT=""
 DEBUG=false
 HELP=false
 
-OPTS=$(getopt -o "" --long template:,config:,class-name:,output:,debug,help -n "$(basename "$0")" -- "$@")
+OPTS=$(getopt -o "" --long template:,config:,output:,debug,help -n "$(basename "$0")" -- "$@")
 
 eval set -- "${OPTS}"
 
@@ -39,12 +38,11 @@ while true; do
     case "$1" in
           --template) TEMPLATE="$2"; shift 2 ;;
             --config) CONFIG="$2"; shift 2 ;;
-        --class-name) CLASS_NAME="$2"; shift 2 ;;
             --output) OUTPUT="$2"; shift 2 ;;
              --debug) DEBUG=true; shift ;;
               --help) HELP=true; shift ;;
                   --) shift; break ;;
-                   *) echo "Usage: $0 [--template FILE] [--config FILE] [--class-name NAME] [--output FILE] [--debug] [--help] json_file" >&2
+                   *) echo "Usage: $0 [--template FILE] [--config FILE] [--output FILE] [--debug] [--help] json_file" >&2
                       exit 1 ;;
     esac
 done
@@ -69,7 +67,6 @@ PY_CMD=(
 )
 [[ -n "${TEMPLATE}" ]] && PY_CMD+=(--template "${TEMPLATE}")
 [[ -n "${CONFIG}" ]] && PY_CMD+=(--config "${CONFIG}")
-[[ -n "${CLASS_NAME}" ]] && PY_CMD+=(--class-name "${CLASS_NAME}")
 [[ -n "${OUTPUT}" ]] && PY_CMD+=(--output "${OUTPUT}")
 [[ "${DEBUG}" == true ]] && PY_CMD+=(--debug)
 

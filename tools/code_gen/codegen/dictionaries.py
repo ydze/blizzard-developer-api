@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from codegen.models import PseudoClass, PseudoProperty, PseudoPropertyType, PseudoKeyValuePair, PseudoPropertyKind
+from codegen.config import validate_dictionaries
+from codegen.models import CodegenContext, PseudoClass, PseudoProperty, PseudoPropertyType, PseudoKeyValuePair, PseudoPropertyKind
 
 import click
 
 
-def _flatten_any(proptypes: list[PseudoPropertyType]) -> list[PseudoPropertyType]:
+def flatten_any(proptypes: list[PseudoPropertyType]) -> list[PseudoPropertyType]:
     flat: list[PseudoPropertyType] = []
     for pt in proptypes:
         if pt.kind == PseudoPropertyKind.ANY:
@@ -17,7 +18,7 @@ def _flatten_any(proptypes: list[PseudoPropertyType]) -> list[PseudoPropertyType
     return flat
 
 
-def _merge_scalars(scalars: list[PseudoPropertyType]) -> list[PseudoPropertyType]:
+def merge_scalars(scalars: list[PseudoPropertyType]) -> list[PseudoPropertyType]:
     nullable_by_type: dict[str, bool] = {}
     order: list[str] = []
     for pt in scalars:
@@ -29,7 +30,7 @@ def _merge_scalars(scalars: list[PseudoPropertyType]) -> list[PseudoPropertyType
     return [PseudoPropertyType(PseudoPropertyKind.SCALAR, t, nullable_by_type[t]) for t in order]
 
 
-def _merge_arrays(
+def merge_arrays(
     arrays: list[PseudoPropertyType],
     classes: list[PseudoClass],
     classes_by_name: dict[str, PseudoClass],
@@ -37,11 +38,11 @@ def _merge_arrays(
 ) -> PseudoPropertyType:
 
     nullable = any(pt.nullable for pt in arrays)
-    inner = _merge_types([pt.type for pt in arrays], classes, classes_by_name, f"{name}_item")
+    inner = merge_types([pt.type for pt in arrays], classes, classes_by_name, f"{name}_item")
     return PseudoPropertyType(PseudoPropertyKind.ARRAY, inner, nullable)
 
 
-def _merge_objects(
+def merge_objects(
     objects: list[PseudoPropertyType],
     classes: list[PseudoClass],
     classes_by_name: dict[str, PseudoClass],
@@ -66,7 +67,7 @@ def _merge_objects(
     merged_properties: list[PseudoProperty] = []
     for propname in order:
         props = props_by_name[propname]
-        merged_type = _merge_types([p.proptype for p in props], classes, classes_by_name, f"{name}_{propname}")
+        merged_type = merge_types([p.proptype for p in props], classes, classes_by_name, f"{name}_{propname}")
         missing = len(props) < total
         merged_properties.append(PseudoProperty(propname, merged_type, missing))
 
@@ -81,7 +82,7 @@ def _merge_objects(
     return PseudoPropertyType(PseudoPropertyKind.OBJECT, name, nullable)
 
 
-def _merge_dicts(
+def merge_dicts(
     dicts: list[PseudoPropertyType],
     classes: list[PseudoClass],
     classes_by_name: dict[str, PseudoClass],
@@ -96,19 +97,19 @@ def _merge_dicts(
             if key not in possible_keys:
                 possible_keys.append(key)
 
-    value_type = _merge_types([pt.type.value_type for pt in dicts], classes, classes_by_name, f"{name}_value")
+    value_type = merge_types([pt.type.value_type for pt in dicts], classes, classes_by_name, f"{name}_value")
     kvp = PseudoKeyValuePair("string", value_type, possible_keys)
     return PseudoPropertyType(PseudoPropertyKind.DICT, kvp, nullable)
 
 
-def _merge_types(
+def merge_types(
     proptypes: list[PseudoPropertyType],
     classes: list[PseudoClass],
     classes_by_name: dict[str, PseudoClass],
     name: str,
 ) -> PseudoPropertyType:
 
-    proptypes = _flatten_any(proptypes)
+    proptypes = flatten_any(proptypes)
 
     scalars = [pt for pt in proptypes if pt.kind == PseudoPropertyKind.SCALAR]
     arrays = [pt for pt in proptypes if pt.kind == PseudoPropertyKind.ARRAY]
@@ -120,13 +121,13 @@ def _merge_types(
     # only if more than one category (or scalar type) is present do we fall
     # back to ANY, the same as everywhere else in the pipeline
     results: list[PseudoPropertyType] = []
-    results.extend(_merge_scalars(scalars))
+    results.extend(merge_scalars(scalars))
     if arrays:
-        results.append(_merge_arrays(arrays, classes, classes_by_name, name))
+        results.append(merge_arrays(arrays, classes, classes_by_name, name))
     if objects:
-        results.append(_merge_objects(objects, classes, classes_by_name, name))
+        results.append(merge_objects(objects, classes, classes_by_name, name))
     if dicts:
-        results.append(_merge_dicts(dicts, classes, classes_by_name, name))
+        results.append(merge_dicts(dicts, classes, classes_by_name, name))
 
     if len(results) == 1:
         return results[0]
@@ -135,7 +136,7 @@ def _merge_types(
     return PseudoPropertyType(PseudoPropertyKind.ANY, "any", nullable, results)
 
 
-def _convert_references(proptype: PseudoPropertyType, target_name: str, kvp: PseudoKeyValuePair):
+def convert_references(proptype: PseudoPropertyType, target_name: str, kvp: PseudoKeyValuePair):
     match proptype.kind:
         case PseudoPropertyKind.OBJECT:
             if proptype.type == target_name:
@@ -143,57 +144,60 @@ def _convert_references(proptype: PseudoPropertyType, target_name: str, kvp: Pse
                 proptype.type = kvp
 
         case PseudoPropertyKind.ARRAY:
-            _convert_references(proptype.type, target_name, kvp)
+            convert_references(proptype.type, target_name, kvp)
 
         case PseudoPropertyKind.ANY:
             for pt in proptype.possible_types:
-                _convert_references(pt, target_name, kvp)
+                convert_references(pt, target_name, kvp)
 
         case PseudoPropertyKind.DICT:
-            _convert_references(proptype.type.value_type, target_name, kvp)
+            convert_references(proptype.type.value_type, target_name, kvp)
 
 
-def apply_dictionaries(classes: list[PseudoClass], dict_class_names: list[str]):
-    classes_by_name = {cls.name: cls for cls in classes}
+def apply_dictionaries(ctx: CodegenContext):
+    if "dictionaries" in ctx.config:
+        names = ctx.config["dictionaries"]
+        dict_class_names = validate_dictionaries(names)
+        classes_by_name = {cls.name: cls for cls in ctx.classes}
 
-    missing = [name for name in dict_class_names if name not in classes_by_name]
-    if missing:
-        raise click.ClickException(f"'dictionaries' references unknown class name(s): {', '.join(missing)}.")
+        missing = [name for name in dict_class_names if name not in classes_by_name]
+        if missing:
+            raise click.ClickException(f"'dictionaries' references unknown class name(s): {', '.join(missing)}.")
 
-    # classes[0] is always the top-level/root class as schema.to_class() appends
-    # nested classes depth-first, then render() reverses the list. Nothing
-    # in the tree ever references the root class by name — it's the entry point,
-    # not a property value — so there is nowhere to attach a DICT conversion for it;
-    # converting it would silently delete the class with no output replacing it.
-    root_name = classes[0].name
-    if root_name in dict_class_names:
-        raise click.ClickException(f"Top-level class '{root_name}' cannot be converted to a dictionary.")
+        # classes[0] is always the top-level/root class as schema.to_class() appends
+        # nested classes depth-first, then render() reverses the list. Nothing
+        # in the tree ever references the root class by name — it's the entry point,
+        # not a property value — so there is nowhere to attach a DICT conversion for it;
+        # converting it would silently delete the class with no output replacing it.
+        root_name = ctx.classes[0].name
+        if root_name in dict_class_names:
+            raise click.ClickException(f"Top-level class '{root_name}' cannot be converted to a dictionary.")
 
-    # Convert deepest-nested targets first, so that a dict-of-dicts (one
-    # dict-target class whose value is itself another dict-target class)
-    # sees the inner one already collapsed by the time we read the outer
-    # one's property types.
-    ordered_targets = sorted(
-        dict_class_names,
-        key=lambda name: classes.index(classes_by_name[name]),
-        reverse=True,
-    )
-
-    for name in ordered_targets:
-        target_cls = classes_by_name[name]
-
-        possible_keys = [prop.propname for prop in target_cls.properties]
-        value_type = _merge_types(
-            [prop.proptype for prop in target_cls.properties],
-            classes,
-            classes_by_name,
-            f"{name}_value",
+        # Convert deepest-nested targets first, so that a dict-of-dicts (one
+        # dict-target class whose value is itself another dict-target class)
+        # sees the inner one already collapsed by the time we read the outer
+        # one's property types.
+        ordered_targets = sorted(
+            dict_class_names,
+            key=lambda key: ctx.classes.index(classes_by_name[key]),
+            reverse=True,
         )
-        kvp = PseudoKeyValuePair("string", value_type, possible_keys)
 
-        for cls in classes:
-            for prop in cls.properties:
-                _convert_references(prop.proptype, name, kvp)
+        for name in ordered_targets:
+            target_cls = classes_by_name[name]
 
-        classes.remove(target_cls)
-        del classes_by_name[name]
+            possible_keys = [prop.propname for prop in target_cls.properties]
+            value_type = merge_types(
+                [prop.proptype for prop in target_cls.properties],
+                ctx.classes,
+                classes_by_name,
+                f"{name}_value",
+            )
+            kvp = PseudoKeyValuePair("string", value_type, possible_keys)
+
+            for cls in ctx.classes:
+                for prop in cls.properties:
+                    convert_references(prop.proptype, name, kvp)
+
+            ctx.classes.remove(target_cls)
+            del classes_by_name[name]
