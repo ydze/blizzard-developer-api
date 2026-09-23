@@ -29,4 +29,6 @@ if ! python3 -c "import pytest" 2>/dev/null; then
 fi
 
 # ─── Run tests ────────────────────────────────────────────────────────────────
+cd "${SCRIPT_DIR}"
+
 pytest -v "$@"
