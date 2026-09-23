@@ -56,10 +56,10 @@ public class {{ cls.name | camelize }}
     {% if comment_required(prop.proptype) == "true" %}
     /// <summary>
     {% if prop.proptype.kind.value == "DICT" %}
-    /// Keys: {{ prop.proptype.type.possible_keys | join(", ") }}.
-    /// Type of Value: {{ format_type(prop.proptype.type.value_type) }}
+    /// Known keys for this dictionary: {{ prop.proptype.type.possible_keys | join(", ") }};
+    /// Each maps to a value of type(s): {{ format_type(prop.proptype.type.value_type) }}
     {% else %}
-    /// Can be: {{ format_type(prop.proptype) }}
+    /// Use caution: this property is dynamically typed and may hold: {{ format_type(prop.proptype) }}
     {% endif %}
     /// </summary>
     {% endif %}
