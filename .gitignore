@@ -6,8 +6,9 @@ assets/
 data/
 
 # Python virtual environment
-.venv/
 __pycache__/
+.venv/
+.pytest_cache/
 
 # Visual Studio Code workspace settings
 .vscode/
