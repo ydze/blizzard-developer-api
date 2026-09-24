@@ -35,8 +35,12 @@ class TestValidateRenames:
             validate_renames(["not", "a", "dict"])
 
     def test_non_string_value_raises(self):
-        with pytest.raises(click.ClickException):
+        with pytest.raises(TypeError, match="expected string or bytes-like object, got 'int'"):
             validate_renames({"a": 123})
+
+    def test_non_valid_string_value_raises(self):
+        with pytest.raises(click.ClickException, match="Class name must start with a letter and contain only letters, numbers and underscores."):
+            validate_renames({"a": "123"})
 
     def test_non_string_key_raises(self):
         # JSON object keys are always strings once parsed, but the function
