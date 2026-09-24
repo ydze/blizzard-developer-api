@@ -1,0 +1,20 @@
+{
+  "dictionaries": [],
+  "renames": {
+    "root": "hearthstone_metadata",
+    "root_bgGameModes": "bg_game_modes",
+    "root_cardBackCategories": "card_back_categories",
+    "root_classes": "classes",
+    "root_factions": "factions",
+    "root_gameModes": "game_modes",
+    "root_keywords": "keywords",
+    "root_mercenaryFactions": "mercenary_factions",
+    "root_mercenaryRoles": "mercenary_roles",
+    "root_minionTypes": "minion_types",
+    "root_rarities": "rarities",
+    "root_setGroups": "set_groups",
+    "root_sets": "sets",
+    "root_spellSchools": "spell_schools",
+    "root_types": "types"
+  }
+}

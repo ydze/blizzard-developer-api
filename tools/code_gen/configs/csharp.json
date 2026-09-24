@@ -1,9 +1,0 @@
-{
-  "dictionaries": [
-    "root_obj"
-  ],
-  "renames": {
-    "root": "dict",
-    "root_obj_value": "V"
-  }
-}

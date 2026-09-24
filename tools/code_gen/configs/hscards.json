@@ -1,0 +1,13 @@
+{
+  "dictionaries": [
+    "root_mercenaryHero_statsByLevel"
+  ],
+  "renames": {
+    "root": "hearthstone_card",
+    "root_sideboard": "sideboard",
+    "root_runeCost": "rune_cost",
+    "root_mercenaryHero": "mercenary_hero",
+    "root_battlegrounds": "battlegrounds",
+    "root_mercenaryHero_statsByLevel_value": "mercenary_hero_stats_by_level"
+  }
+}

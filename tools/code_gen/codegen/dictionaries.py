@@ -3,7 +3,19 @@
 from __future__ import annotations
 
 from codegen.config import validate_dictionaries
-from codegen.models import CodegenContext, PseudoClass, PseudoProperty, PseudoPropertyType, PseudoKeyValuePair, PseudoPropertyKind
+from codegen.models import (
+    CodegenContext,
+    PseudoClass,
+    PseudoProperty,
+    PseudoPropertyType,
+    PseudoKeyValuePair,
+    PseudoPropertyKind,
+    as_typename,
+    as_proptype,
+    as_kvp,
+)
+
+from natsort import natsorted
 
 import click
 
@@ -22,11 +34,12 @@ def merge_scalars(scalars: list[PseudoPropertyType]) -> list[PseudoPropertyType]
     nullable_by_type: dict[str, bool] = {}
     order: list[str] = []
     for pt in scalars:
-        if pt.type not in nullable_by_type:
-            nullable_by_type[pt.type] = pt.nullable
-            order.append(pt.type)
+        typename = as_typename(pt.type)
+        if typename not in nullable_by_type:
+            nullable_by_type[typename] = pt.nullable
+            order.append(typename)
         else:
-            nullable_by_type[pt.type] = nullable_by_type[pt.type] or pt.nullable
+            nullable_by_type[typename] = nullable_by_type[typename] or pt.nullable
     return [PseudoPropertyType(PseudoPropertyKind.SCALAR, t, nullable_by_type[t]) for t in order]
 
 
@@ -38,7 +51,7 @@ def merge_arrays(
 ) -> PseudoPropertyType:
 
     nullable = any(pt.nullable for pt in arrays)
-    inner = merge_types([pt.type for pt in arrays], classes, classes_by_name, f"{name}_item")
+    inner = merge_types([as_proptype(pt.type) for pt in arrays], classes, classes_by_name, f"{name}_item")
     return PseudoPropertyType(PseudoPropertyKind.ARRAY, inner, nullable)
 
 
@@ -50,7 +63,7 @@ def merge_objects(
 ) -> PseudoPropertyType:
 
     nullable = any(pt.nullable for pt in objects)
-    source_classes = [classes_by_name[pt.type] for pt in objects]
+    source_classes = [classes_by_name[as_typename(pt.type)] for pt in objects]
     total = len(source_classes)
 
     # union properties by name across all source classes, mirroring
@@ -93,12 +106,12 @@ def merge_dicts(
 
     possible_keys: list[str] = []
     for pt in dicts:
-        for key in pt.type.possible_keys:
+        for key in as_kvp(pt.type).possible_keys:
             if key not in possible_keys:
                 possible_keys.append(key)
 
-    value_type = merge_types([pt.type.value_type for pt in dicts], classes, classes_by_name, f"{name}_value")
-    kvp = PseudoKeyValuePair("string", value_type, possible_keys)
+    value_type = merge_types([as_kvp(pt.type).value_type for pt in dicts], classes, classes_by_name, f"{name}_value")
+    kvp = PseudoKeyValuePair("string", value_type, natsorted(possible_keys))
     return PseudoPropertyType(PseudoPropertyKind.DICT, kvp, nullable)
 
 
@@ -144,14 +157,14 @@ def convert_references(proptype: PseudoPropertyType, target_name: str, kvp: Pseu
                 proptype.type = kvp
 
         case PseudoPropertyKind.ARRAY:
-            convert_references(proptype.type, target_name, kvp)
+            convert_references(as_proptype(proptype.type), target_name, kvp)
 
         case PseudoPropertyKind.ANY:
             for pt in proptype.possible_types:
                 convert_references(pt, target_name, kvp)
 
         case PseudoPropertyKind.DICT:
-            convert_references(proptype.type.value_type, target_name, kvp)
+            convert_references(as_kvp(proptype.type).value_type, target_name, kvp)
 
 
 def apply_dictionaries(ctx: CodegenContext):
@@ -193,7 +206,7 @@ def apply_dictionaries(ctx: CodegenContext):
                 classes_by_name,
                 f"{name}_value",
             )
-            kvp = PseudoKeyValuePair("string", value_type, possible_keys)
+            kvp = PseudoKeyValuePair("string", value_type, natsorted(possible_keys))
 
             for cls in ctx.classes:
                 for prop in cls.properties:

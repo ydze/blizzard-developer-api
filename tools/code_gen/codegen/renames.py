@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from codegen.config import validate_renames
-from codegen.models import CodegenContext, PseudoClass, PseudoPropertyType, PseudoPropertyKind
+from codegen.models import CodegenContext, PseudoClass, PseudoPropertyType, PseudoPropertyKind, as_typename, as_proptype, as_kvp
 
 import click
 
@@ -11,17 +11,17 @@ import click
 def rename_property_names(proptype: PseudoPropertyType, renames: dict[str, str]):
     match proptype.kind:
         case PseudoPropertyKind.OBJECT:
-            proptype.type = renames.get(proptype.type, proptype.type)
+            proptype.type = renames.get(as_typename(proptype.type), proptype.type)
 
         case PseudoPropertyKind.ARRAY:
-            rename_property_names(proptype.type, renames)
+            rename_property_names(as_proptype(proptype.type), renames)
 
         case PseudoPropertyKind.ANY:
             for pt in proptype.possible_types:
                 rename_property_names(pt, renames)
 
         case PseudoPropertyKind.DICT:
-            rename_property_names(proptype.type.value_type, renames)
+            rename_property_names(as_kvp(proptype.type).value_type, renames)
 
 
 def rename_class_names(classes: list[PseudoClass], renames: dict[str, str]):

@@ -4,3 +4,7 @@ line-length = 145
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+
+[tool.mypy]
+files = ["tests", "codegen", "render.py"]
+python_version = "3.14"

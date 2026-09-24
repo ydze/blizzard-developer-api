@@ -63,7 +63,7 @@ def main(template, config, input, output, debug):
     else:
         with open(output, "w") as f:
             f.write(result)
-        click.echo(f"Saved {output}")
+        click.echo(f"Saved {output}.")
 
 
 if __name__ == "__main__":
