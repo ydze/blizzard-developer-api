@@ -35,7 +35,7 @@ class TestValidateRenames:
             validate_renames(["not", "a", "dict"])
 
     def test_non_string_value_raises(self):
-        with pytest.raises(TypeError, match="expected string or bytes-like object, got 'int'"):
+        with pytest.raises(click.ClickException, match="'renames' must be a JSON object of {generated_name: custom_name} string pairs."):
             validate_renames({"a": 123})
 
     def test_non_valid_string_value_raises(self):

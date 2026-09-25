@@ -1,0 +1,37 @@
+name: code_gen CI
+
+on:
+  push:
+    paths:
+      - 'tools/code_gen/**'
+      - '.github/workflows/code_gen-ci.yml'
+  pull_request:
+    paths:
+      - 'tools/code_gen/**'
+      - '.github/workflows/code_gen-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      TERM: linux
+      PROJECT_DIR: ${{ github.workspace }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+          cache-dependency-path: tools/code_gen/requirements-dev.txt
+
+      - name: Setup development environment
+        run: bash tools/code_gen/setup.sh --dev
+
+      - name: Perform type check (mypy)
+        run: bash tools/code_gen/type_check.sh
+
+      - name: Run tests (pytest, 100% branch coverage required)
+        run: bash tools/code_gen/test.sh --cov=codegen --cov-branch --cov-report=term-missing --cov-fail-under=100

@@ -25,9 +25,11 @@ def load_config(path: str | None) -> dict:
 
 def validate_renames(renames) -> dict[str, str]:
     is_dict = isinstance(renames, dict)
-    all_str = all(isinstance(k, str) and isinstance(validate_class_name(v), str) for k, v in renames.items()) if is_dict else False
+    all_str = all(isinstance(k, str) and isinstance(v, str) for k, v in renames.items()) if is_dict else False
     if not is_dict or not all_str:
         raise click.ClickException("'renames' must be a JSON object of {generated_name: custom_name} string pairs.")
+    for v in renames.values():
+        validate_class_name(v)
     return renames
 
 
