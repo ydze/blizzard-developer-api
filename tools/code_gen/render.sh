@@ -11,9 +11,10 @@ trap 'tput cnorm; rm -f "${SCHEMA_FILE:-}"' EXIT INT TERM
 require_commands python3
 
 # ─── Configuration ────────────────────────────────────────────────────────────
-VENV_DIR="$(dirname "$0")/.venv"
+SCRIPT_DIR="$(dirname "$0")"
+VENV_DIR="${SCRIPT_DIR}/.venv"
 ACTIVATE="${VENV_DIR}/bin/activate"
-RENDER_SCRIPT="$(dirname "$0")/render.py"
+RENDER_SCRIPT="${SCRIPT_DIR}/render.py"
 
 if [[ ! -f "${ACTIVATE}" ]]; then
     echo "Virtual environment not found. Run setup.sh first." >&2
@@ -23,36 +24,6 @@ fi
 # ─── Activate virtual environment ─────────────────────────────────────────────
 source "${ACTIVATE}"
 
-# ─── Parse options ────────────────────────────────────────────────────────────
-TEMPLATE=""
-CONFIG=""
-OUTPUT=""
-DEBUG=false
-HELP=false
-
-OPTS=$(getopt -o "" --long template:,config:,output:,debug,help -n "$(basename "$0")" -- "$@")
-
-eval set -- "${OPTS}"
-
-while true; do
-    case "$1" in
-          --template) TEMPLATE="$2"; shift 2 ;;
-            --config) CONFIG="$2"; shift 2 ;;
-            --output) OUTPUT="$2"; shift 2 ;;
-             --debug) DEBUG=true; shift ;;
-              --help) HELP=true; shift ;;
-                  --) shift; break ;;
-                   *) echo "Usage: $0 [--template FILE] [--config FILE] [--output FILE] [--debug] [--help] json_file" >&2
-                      exit 1 ;;
-    esac
-done
-
-# ─── Display help message ─────────────────────────────────────────────────────
-if [[ "${HELP}" == true ]]; then
-    python3 "${RENDER_SCRIPT}" --help
-    exit 0
-fi
-
 # ─── Extract JSON file schema ─────────────────────────────────────────────────
 JSON_FILE="${1:?Provide a JSON file}"
 
@@ -61,13 +32,6 @@ SCHEMA_FILE=$(mktemp)
 "${PROJECT_DIR}"/tools/extract_schema/extract_schema.sh -f raw "${JSON_FILE}" > "${SCHEMA_FILE}"
 
 # ─── Invoke code generator ────────────────────────────────────────────────────
-PY_CMD=(
-    python3 "${RENDER_SCRIPT}"
-    --input "${SCHEMA_FILE}"
-)
-[[ -n "${TEMPLATE}" ]] && PY_CMD+=(--template "${TEMPLATE}")
-[[ -n "${CONFIG}" ]] && PY_CMD+=(--config "${CONFIG}")
-[[ -n "${OUTPUT}" ]] && PY_CMD+=(--output "${OUTPUT}")
-[[ "${DEBUG}" == true ]] && PY_CMD+=(--debug)
+cd "${SCRIPT_DIR}"
 
-"${PY_CMD[@]}"
+python3 "${RENDER_SCRIPT}" "$@"

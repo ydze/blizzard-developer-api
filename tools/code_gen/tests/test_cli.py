@@ -1,8 +1,7 @@
 import json
+import render as cli
 
 from click.testing import CliRunner
-
-import render as cli
 
 MINIMAL_TEMPLATE = "{% for cls in classes %}class {{ cls.name }}\n{% endfor %}"
 SIMPLE_SCHEMA = {"props": [{"propname": "id", "proptype": ["integer"], "missing": False}]}

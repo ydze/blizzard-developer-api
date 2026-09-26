@@ -1,10 +1,10 @@
+import pytest
+
 from codegen import paths
 from codegen.debug import print_debug
 from codegen.models import CodegenContext, PseudoClass, PseudoProperty, PseudoPropertyKind, PseudoPropertyType
 
 from pathlib import Path
-
-import pytest
 
 
 @pytest.fixture(autouse=True)

@@ -28,6 +28,7 @@ done
 
 SCRIPT_DIR="$(dirname "$0")"
 VENV_DIR="${SCRIPT_DIR}/.venv"
+ACTIVATE="${VENV_DIR}/bin/activate"
 
 if [[ "${DEV}" == true ]]; then
     REQUIREMENTS_FILE="${SCRIPT_DIR}/requirements-dev.txt"
@@ -42,7 +43,7 @@ if [[ ! -d "${VENV_DIR}" ]]; then
 fi
 
 # ─── Activate virtual environment ─────────────────────────────────────────────
-source "${VENV_DIR}/bin/activate"
+source "${ACTIVATE}"
 
 # ─── Install dependencies ─────────────────────────────────────────────────────
 echo "Installing dependencies..."
