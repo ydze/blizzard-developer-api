@@ -1,0 +1,45 @@
+name: jq tools CI
+
+on:
+  push:
+    paths:
+      - 'common/**'
+      - 'tests/**'
+      - 'tools/extract_enums/**'
+      - 'tools/extract_schema/**'
+      - 'tools/merge_objects/**'
+      - 'tools/sanitize_json/**'
+      - 'tools/unit_testing/**'
+      - '.github/workflows/jq_tools-ci.yml'
+  pull_request:
+    paths:
+      - 'common/**'
+      - 'tests/**'
+      - 'tools/extract_enums/**'
+      - 'tools/extract_schema/**'
+      - 'tools/merge_objects/**'
+      - 'tools/sanitize_json/**'
+      - 'tools/unit_testing/**'
+      - '.github/workflows/jq_tools-ci.yml'
+
+jobs:
+  test:
+    name: test (${{ matrix.tool }})
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: [extract_schema, merge_objects, extract_enums, sanitize_json]
+
+    env:
+      PROJECT_DIR: ${{ github.workspace }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show jq version
+        run: jq --version
+
+      - name: Run ${{ matrix.tool }} tests
+        run: bash tools/unit_testing/run_tests.sh tools/${{ matrix.tool }}/${{ matrix.tool }}.sh
