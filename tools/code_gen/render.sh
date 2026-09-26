@@ -62,8 +62,6 @@ SCHEMA_FILE=$(mktemp)
 "${PROJECT_DIR}"/tools/extract_schema/extract_schema.sh -f raw "${JSON_FILE}" > "${SCHEMA_FILE}"
 
 # ─── Invoke code generator ────────────────────────────────────────────────────
-cd "${SCRIPT_DIR}"
-
 PY_CMD=(
     python3 "${RENDER_SCRIPT}"
     --input "${SCHEMA_FILE}"
