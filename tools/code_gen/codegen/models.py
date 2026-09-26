@@ -11,7 +11,6 @@ class PseudoPropertyKind(Enum):
     ANY = "ANY"
     ARRAY = "ARRAY"
     DICT = "DICT"
-    ENUM = "ENUM"
     OBJECT = "OBJECT"
     SCALAR = "SCALAR"
 

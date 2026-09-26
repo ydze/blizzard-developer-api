@@ -4,8 +4,7 @@ set -euo pipefail
 
 TEMP_FILES=()
 
-tput civis
-trap 'tput cnorm; [[ ${#TEMP_FILES[@]} -gt 0 ]] && rm -f "${TEMP_FILES[@]}"' EXIT INT TERM
+trap '[[ ${#TEMP_FILES[@]} -gt 0 ]] && rm -f "${TEMP_FILES[@]}"' EXIT INT TERM
 
 source "${PROJECT_DIR}/common/common.sh"
 
@@ -19,17 +18,19 @@ DATA_FILE="hearthstone_cards.json"
 IMAGES_DIR="${PROJECT_DIR}/assets/hearthstone/card_images"
 PARALLEL_JOBS=150
 SHOW_FAILED=false
+RETRY_FAILED=false
 
-OPTS=$(getopt -o "" --long show-failed -n "$(basename "$0")" -- "$@")
+OPTS=$(getopt -o "" --long retry-failed,show-failed -n "$(basename "$0")" -- "$@")
 
 eval set -- "${OPTS}"
 
 while true; do
     case "$1" in
-        --show-failed) SHOW_FAILED=true; shift ;;
-        --) shift; break ;;
-         *) echo "Usage: $0 [--show-failed]" >&2;
-            exit 1 ;;
+        --retry-failed) RETRY_FAILED=true; shift ;;
+         --show-failed) SHOW_FAILED=true; shift ;;
+                    --) shift; break ;;
+                     *) echo "Usage: $0 [--retry-failed] [--show-failed]" >&2;
+                        exit 1 ;;
     esac
 done
 
@@ -38,20 +39,20 @@ load_locales "${CONFIG_FILE}"
 
 # ─── Save Hearthstone cards image ─────────────────────────────────────────────
 save_image() {
-    local CARDS_DIR=$1
-    local URL=$2
-    local SAVED_FILE="${CARDS_DIR}/$(basename "${URL}")"
+    local output_dir=$1
+    local url=$2
+    local saved_file="${output_dir}/$(basename "${url}")"
 
-    local DL_CMD=(
+    local dl_cmd=(
         curl
         --silent --fail
         --retry 10 --retry-delay 6 --retry-connrefused
-        --output "${SAVED_FILE}"
-        "${URL}"
+        --output "${saved_file}"
+        "${url}"
     )
 
-    if ! "${DL_CMD[@]}"; then
-        echo "${URL}" >> "${FAILED_URLS_FILE}"
+    if ! "${dl_cmd[@]}"; then
+        echo "${url}" >> "${FAILED_URLS_FILE}"
     fi
 }
 export -f save_image
@@ -67,7 +68,7 @@ for LOCALE in "${LOCALES[@]}"; do
     CARDS_FILE="${DATA_DIR}/${LOCALE}/${DATA_FILE}"
 
     if [[ ! -f "${CARDS_FILE}" ]]; then
-        echo "File not found: ${CARDS_FILE}, skipping..."
+        echo -e "${YELLOW}File not found: ${CARDS_FILE}, skipping...${RESET}"
         continue
     fi
 
@@ -79,7 +80,9 @@ for LOCALE in "${LOCALES[@]}"; do
 
     echo "Found ${IMAGE_COUNT} images."
 
-    CARDS_DIR="${IMAGES_DIR}/${LOCALE}" && mkdir -p "${CARDS_DIR}"
+    OUTPUT_DIR="${IMAGES_DIR}/${LOCALE}"
+    rm -rf "${OUTPUT_DIR:?}"
+    mkdir -p "${OUTPUT_DIR}"
 
     echo "Downloading..."
 
@@ -88,23 +91,24 @@ for LOCALE in "${LOCALES[@]}"; do
 
     printf '%s\n' "${URLS[@]}" > "${URLS_FILE}"
 
-    parallel -j ${PARALLEL_JOBS} save_image "${CARDS_DIR}" {} < "${URLS_FILE}" &
+    JOBLOG="${OUTPUT_DIR}/.joblog"
+    parallel --joblog "${JOBLOG}" -j ${PARALLEL_JOBS} save_image "${OUTPUT_DIR}" {} < "${URLS_FILE}" &
 
     PARALLEL_PID=$!
 
     # ─── Track progress while images download ─────────────────────────────────
     while kill -0 "${PARALLEL_PID}" 2>/dev/null; do
         sleep 0.314
-        COMPLETED=$(ls "${CARDS_DIR}" 2>/dev/null | wc -l)
+        COMPLETED=$(ls "${OUTPUT_DIR}" 2>/dev/null | wc -l)
         progress "${COMPLETED}" "${IMAGE_COUNT}"
     done
 
     wait "${PARALLEL_PID}"
 
-    DOWNLOADED=$(ls "${CARDS_DIR}" 2>/dev/null | wc -l)
+    DOWNLOADED=$(ls "${OUTPUT_DIR}" 2>/dev/null | wc -l)
     SKIPPED=$(( IMAGE_COUNT - DOWNLOADED ))
 
-    echo -e "\nImages: ${DOWNLOADED} downloaded, ${SKIPPED} failed.\n"
+    echo -e "\n${GREEN}Images: ${DOWNLOADED} downloaded, ${SKIPPED} failed.${RESET}\n"
 done
 
 # ─── Display errors ───────────────────────────────────────────────────────────

@@ -1,2 +1,3 @@
 Cannot generate enum 'items_slug' — path '/items/slug' contains invalid value(s):
   1bad
+{}

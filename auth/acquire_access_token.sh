@@ -30,8 +30,6 @@ AUTH_CMD=(
     "${AUTH_URL}"
 )
 
-echo "Acquiring access token..." >&2
-
 AUTH_RESPONSE=$("${AUTH_CMD[@]}")
 
 ACCESS_TOKEN=$(echo "${AUTH_RESPONSE}" | jq --raw-output '.access_token')
@@ -39,8 +37,6 @@ ACCESS_TOKEN=$(echo "${AUTH_RESPONSE}" | jq --raw-output '.access_token')
 if [[ -z "${ACCESS_TOKEN}" || "${ACCESS_TOKEN}" == "null" ]]; then
     echo "Failed to acquire access token." >&2
     exit 1
-else
-    echo "Access token acquired." >&2
 fi
 
 echo "${ACCESS_TOKEN}"

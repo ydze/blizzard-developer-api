@@ -69,7 +69,6 @@ for path in "${FIELDS[@]}"; do
         INVALID_VALUES=$(echo "${RESULT}" | jq -r '.invalid_values | join(",\n  ")')
 
         echo -e "Cannot generate enum '${KEY}' — path '${path}' contains invalid value(s):\n  ${INVALID_VALUES}" >&2
-
         continue
     fi
 
@@ -77,8 +76,4 @@ for path in "${FIELDS[@]}"; do
 done
 
 # ─── Combine and emit ─────────────────────────────────────────────────────────
-if [[ "${#RESULTS[@]}" -eq 0 ]]; then
-    printf '\n'
-else
-    printf '%s\n' "${RESULTS[@]}" | jq -s 'add'
-fi
+printf '%s\n' "${RESULTS[@]}" | jq -s 'add // {}'

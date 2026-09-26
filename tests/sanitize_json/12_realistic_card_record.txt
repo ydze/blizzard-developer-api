@@ -1,0 +1,18 @@
+[
+  {
+    "id": 1,
+    "name": "Fireball",
+    "text": "Deal <b>6</b> damage.",
+    "flavorText": "This spell is useful for burning things.",
+    "classId": 4,
+    "keywordIds": [],
+    "runeCost": {
+      "unholy": 1
+    },
+    "childIds": null,
+    "tags": [
+      "spell",
+      "Fire School"
+    ]
+  }
+]

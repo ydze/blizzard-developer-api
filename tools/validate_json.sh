@@ -4,9 +4,6 @@ set -euo pipefail
 
 source "${PROJECT_DIR}/common/common.sh"
 
-tput civis
-trap 'tput cnorm' EXIT INT TERM
-
 # ─── Dependencies ─────────────────────────────────────────────────────────────
 require_commands du jq
 
@@ -69,12 +66,15 @@ if [[ "${ROOT_TYPE}" == "array" ]]; then
                 exit 1
             fi
 
-            UNIQUE_COUNT=$(jq --arg key "${UNIQUE_FIELD}" 'map(.[$key]) | unique | length' "${JSON_FILE}")
-            DUPLICATE_COUNT=$((ARRAY_LENGTH - UNIQUE_COUNT))
+            PRESENT_COUNT=$(jq --arg key "${UNIQUE_FIELD}" 'map(select(has($key))) | length' "${JSON_FILE}")
+            UNIQUE_COUNT=$(jq --arg key "${UNIQUE_FIELD}" 'map(select(has($key)) | .[$key]) | unique | length' "${JSON_FILE}")
+            MISSING_COUNT=$(( ARRAY_LENGTH - PRESENT_COUNT ))
+            DUPLICATE_COUNT=$(( PRESENT_COUNT - UNIQUE_COUNT ))
 
             print_row "Unique Field" "${UNIQUE_FIELD}"
             print_row "Unique Count" "${UNIQUE_COUNT}"
             print_row "Duplicate Count" "${DUPLICATE_COUNT}"
+            print_row "Missing Count" "${MISSING_COUNT}"
         fi
     fi
 fi

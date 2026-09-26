@@ -4,9 +4,6 @@ set -euo pipefail
 
 source "${PROJECT_DIR}/common/common.sh"
 
-tput civis
-trap 'tput cnorm' EXIT INT TERM
-
 # ─── Dependencies ─────────────────────────────────────────────────────────────
 require_commands diff
 
@@ -35,16 +32,16 @@ if [[ -f "${HOOK}" ]]; then
     source "${HOOK}"
 fi
 
-readarray -t json_files < <(ls -v "${TESTS_DIR}"/*.json)
+readarray -t JSON_FILES < <(ls -v "${TESTS_DIR}"/*.json)
 
 # ─── Run tests ────────────────────────────────────────────────────────────────
-for json_file in "${json_files[@]}"; do
+for json_file in "${JSON_FILES[@]}"; do
     test_name=$(basename "${json_file}" .json)
     expected_file="${TESTS_DIR}/${test_name}.txt"
 
     if [[ ! -f "${expected_file}" ]]; then
-        echo "No expected output for ${test_name}, skipping..."
-        SKIP=$((SKIP + 1))
+        echo -e "${YELLOW}No expected output for ${test_name}, skipping...${RESET}"
+        SKIP=$(( SKIP + 1 ))
         continue
     fi
 
@@ -53,11 +50,13 @@ for json_file in "${json_files[@]}"; do
 
     if diff <(echo "${actual}") "${expected_file}"; then
         echo -e "${GREEN}✓ ${test_name}${RESET}"
-        PASS=$((PASS + 1))
+        PASS=$(( PASS + 1 ))
     else
         echo -e "${RED}✗ ${test_name}${RESET}"
-        FAIL=$((FAIL + 1))
+        FAIL=$(( FAIL + 1 ))
     fi
 done
 
 echo -e "\nResults: ${PASS} passed, ${FAIL} failed, ${SKIP} skipped."
+
+[[ "${FAIL}" -eq 0 ]] || exit 1

@@ -2,10 +2,9 @@
 
 set -euo pipefail
 
-source "${PROJECT_DIR}/common/common.sh"
+trap 'rm -f "${SCHEMA_FILE:-}"' EXIT INT TERM
 
-tput civis
-trap 'tput cnorm; rm -f "${SCHEMA_FILE:-}"' EXIT INT TERM
+source "${PROJECT_DIR}/common/common.sh"
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
 require_commands python3

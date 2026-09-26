@@ -2,8 +2,7 @@
 
 set -euo pipefail
 
-tput civis
-trap 'tput cnorm' EXIT INT TERM
+source "${PROJECT_DIR}/common/common.sh"
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 SCRIPT="${1:?Provide a script to generate test results for}"
@@ -28,13 +27,14 @@ if [[ -f "${HOOK}" ]]; then
     source "${HOOK}"
 fi
 
-readarray -t json_files < <(ls -v "${TESTS_DIR}"/*.json)
+readarray -t JSON_FILES < <(ls -v "${TESTS_DIR}"/*.json)
 
-for json_file in "${json_files[@]}"; do
+for json_file in "${JSON_FILES[@]}"; do
     test_name=$(basename "${json_file}" .json)
     output=$(run_script "${json_file}" 2>&1) || true
     echo "${output}" | normalize_output > "${TESTS_DIR}/${test_name}.txt"
-    TEST_COUNT=$((TEST_COUNT + 1))
+
+    TEST_COUNT=$(( TEST_COUNT + 1 ))
 done
 
-echo "Generated: ${TEST_COUNT} test results."
+echo -e "${GREEN}Generated: ${TEST_COUNT} test results.${RESET}"

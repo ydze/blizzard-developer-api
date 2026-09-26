@@ -15,7 +15,6 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      TERM: linux
       PROJECT_DIR: ${{ github.workspace }}
 
     steps:

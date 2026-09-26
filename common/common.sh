@@ -6,6 +6,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 RED='\033[0;31m'
 RESET='\033[0m'
+
 CLEAR_LINE='\033[K'
 
 
@@ -82,7 +83,7 @@ progress() {
 # ─── Table ────────────────────────────────────────────────────────────────────
 TABLE_WIDTH=80
 LABEL_WIDTH="${LABEL_WIDTH:-18}"
-VALUE_WIDTH=$((TABLE_WIDTH - LABEL_WIDTH - 7))
+VALUE_WIDTH=$(( TABLE_WIDTH - LABEL_WIDTH - 7 ))
 PADDING=2
 
 repeat() {
@@ -113,15 +114,15 @@ print_row() {
 
 print_title_border() {
     local title=" $1 "
-    local lspan=$(((TABLE_WIDTH - 2 - ${#title}) / 2))
-    local rspan=$(((TABLE_WIDTH - 2 - ${#title}) - lspan))
-    printf "╭%s%s%s╮\n" "$(repeat ─ "${lspan}")" "${title}" "$(repeat ─ "${rspan}")"
+    local lspan=$((( TABLE_WIDTH - 2 - ${#title} ) / 2 ))
+    local rspan=$((( TABLE_WIDTH - 2 - ${#title} ) - lspan ))
+    printf "╭%s%s%s╮\n" "$( repeat ─ "${lspan}" )" "${title}" "$( repeat ─ "${rspan}" )"
 }
 
 print_top_border() {
-    printf "├%s┬%s┤\n" "$(repeat ─ $((LABEL_WIDTH + PADDING)))" "$(repeat ─ $((VALUE_WIDTH + PADDING)))"
+    printf "├%s┬%s┤\n" "$( repeat ─ $(( LABEL_WIDTH + PADDING )))" "$( repeat ─ $(( VALUE_WIDTH + PADDING )))"
 }
 
 print_bottom_border() {
-    printf "╰%s┴%s╯\n" "$(repeat ─ $((LABEL_WIDTH + PADDING)))" "$(repeat ─ $((VALUE_WIDTH + PADDING)))"
+    printf "╰%s┴%s╯\n" "$( repeat ─ $(( LABEL_WIDTH + PADDING )))" "$( repeat ─ $(( VALUE_WIDTH + PADDING )))"
 }

@@ -4,9 +4,6 @@ set -euo pipefail
 
 source "${PROJECT_DIR}/common/common.sh"
 
-tput civis
-trap 'tput cnorm' EXIT INT TERM
-
 # ─── Dependencies ─────────────────────────────────────────────────────────────
 require_commands python3 pip3
 

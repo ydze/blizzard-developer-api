@@ -2,9 +2,6 @@
 
 set -euo pipefail
 
-tput civis
-trap 'tput cnorm' EXIT INT TERM
-
 source "${PROJECT_DIR}/common/common.sh"
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
@@ -27,24 +24,26 @@ ACCESS_TOKEN=$(bash "${PROJECT_DIR}/auth/acquire_access_token.sh")
 
 # ─── Download Hearthstone Metadata ────────────────────────────────────────────
 get_metadata() {
-    local LOCALE=$1
+    set -euo pipefail
 
-    local OUTPUT_DIR="${PROJECT_DIR}/data/hearthstone/${LOCALE}"
-    local SAVED_FILE="${OUTPUT_DIR}/${OUTPUT_FILE}"
+    local locale=$1
 
-    mkdir -p "${OUTPUT_DIR}"
+    local output_dir="${PROJECT_DIR}/data/hearthstone/${locale}"
+    local saved_file="${output_dir}/${OUTPUT_FILE}"
 
-    local GET_CMD=(
+    mkdir -p "${output_dir}"
+
+    local get_cmd=(
         curl
         --silent --fail
         --retry 10 --retry-delay 6 --retry-connrefused
-        --header "Authorization: Bearer ${ACCESS_TOKEN}"
-        "${API_BASE}/hearthstone/metadata?locale=${LOCALE}"
+        "${API_BASE}/hearthstone/metadata?locale=${locale}"
     )
 
-    "${GET_CMD[@]}" | jq '.' > "${SAVED_FILE}"
+    "${get_cmd[@]}" --header @<(printf 'Authorization: Bearer %s' "${ACCESS_TOKEN}") | jq '.' > "${saved_file}.part"
+    mv "${saved_file}.part" "${saved_file}"
 
-    echo -e "${GREEN}Saved ${SAVED_FILE}.${RESET}"
+    echo -e "${GREEN}Saved ${saved_file}.${RESET}"
 }
 export -f get_metadata
 

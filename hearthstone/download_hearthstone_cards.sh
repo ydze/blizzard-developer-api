@@ -2,8 +2,7 @@
 
 set -euo pipefail
 
-tput civis
-trap 'tput cnorm; rm -rf "${TMP_DIR:-}"' EXIT INT TERM
+trap 'rm -rf "${TMP_DIR:-}"' EXIT INT TERM
 
 source "${PROJECT_DIR}/common/common.sh"
 
@@ -43,28 +42,33 @@ TMP_DIR=$(mktemp -d)
 
 # ─── Fetch a single Hearthstone cards page ────────────────────────────────────
 get_page() {
-    local LOCALE=$1
-    local PAGE=$2
-    local GAMEMODE=$3
+    set -euo pipefail
 
-    local CURL_CMD=(
+    local locale=$1
+    local page=$2
+    local gamemode=$3
+
+    local curl_cmd=(
         curl
         --silent --fail
         --retry 10 --retry-delay 6 --retry-connrefused
-        --header "Authorization: Bearer ${ACCESS_TOKEN}"
-        "${API_BASE}/hearthstone/cards?locale=${LOCALE}&page=${PAGE}&pageSize=${PAGE_SIZE}&gameMode=${GAMEMODE}&collectible=${COLLECTIBLE}"
+        "${API_BASE}/hearthstone/cards?locale=${locale}&page=${page}&pageSize=${PAGE_SIZE}&gameMode=${gamemode}&collectible=${COLLECTIBLE}"
     )
 
-    "${CURL_CMD[@]}"
+    "${curl_cmd[@]}" --header @<(printf 'Authorization: Bearer %s' "${ACCESS_TOKEN}")
 }
 export -f get_page
 
 save_page() {
-    local LOCALE=$1
-    local PAGE=$2
-    local GAMEMODE=$3
+    set -euo pipefail
 
-    get_page "${LOCALE}" "${PAGE}" "${GAMEMODE}" | jq '.cards' > "${TMP_DIR}/${LOCALE}_${GAMEMODE}_page_${PAGE}.json"
+    local locale=$1
+    local page=$2
+    local gamemode=$3
+    local json_file="${TMP_DIR}/${locale}_${gamemode}_page_${page}.json"
+
+    get_page "${locale}" "${page}" "${gamemode}" | jq '.cards' > "${json_file}.part"
+    mv "${json_file}.part" "${json_file}"
 }
 export -f save_page
 
@@ -103,7 +107,7 @@ for LOCALE in "${LOCALES[@]}"; do
         JOBS=$(( PAGE_COUNT < MAX_PARALLEL_JOBS ? PAGE_COUNT : MAX_PARALLEL_JOBS ))
 
         # ─── Download remaining pages in parallel ─────────────────────────────
-        parallel -j "${JOBS}" save_page "${LOCALE}" {} "${GAMEMODE}" ::: $(seq 2 "${PAGE_COUNT}") &
+        parallel --halt now,fail=1 -j "${JOBS}" save_page "${LOCALE}" {} "${GAMEMODE}" ::: $(seq 2 "${PAGE_COUNT}") &
 
         PARALLEL_PID=$!
 
@@ -114,7 +118,13 @@ for LOCALE in "${LOCALES[@]}"; do
             progress "${COMPLETED}" "${PAGE_COUNT}"
         done
 
-        wait "${PARALLEL_PID}" && echo
+        wait "${PARALLEL_PID}"
+        echo
+
+        FAILED=$(ls "${TMP_DIR}"/${LOCALE}_${GAMEMODE}_page_*.json.part 2>/dev/null | wc -l || true)
+        if [[ "${FAILED}" -gt 0 ]]; then
+            echo -e "${YELLOW}Failed to retrieve ${FAILED} pages.${RESET}\n"
+        fi
     done
 
     OUTPUT_DIR="${PROJECT_DIR}/data/hearthstone/${LOCALE}" && mkdir -p "${OUTPUT_DIR}"
