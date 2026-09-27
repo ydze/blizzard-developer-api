@@ -122,7 +122,7 @@ for LOCALE in "${LOCALES[@]}"; do
         done
 
         echo
-        wait "${PARALLEL_PID}" || true
+        wait "${PARALLEL_PID}"
     done
 
     OUTPUT_DIR="${PROJECT_DIR}/data/hearthstone/${LOCALE}" && mkdir -p "${OUTPUT_DIR}"
