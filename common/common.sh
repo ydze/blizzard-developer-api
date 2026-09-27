@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
 
+COMPACT_JOBLOG_SCRIPT="${PROJECT_DIR}/tools/compact_joblog/compact_joblog.awk"
+
+
 # ─── Colors ───────────────────────────────────────────────────────────────────
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
@@ -125,4 +128,18 @@ print_top_border() {
 
 print_bottom_border() {
     printf "╰%s┴%s╯\n" "$( repeat ─ $(( LABEL_WIDTH + PADDING )))" "$( repeat ─ $(( VALUE_WIDTH + PADDING )))"
+}
+
+
+# ─── Keep only failed jobs in the job log ─────────────────────────────────────
+compact_joblog() {
+    local joblog=$1
+
+    awk -f "${COMPACT_JOBLOG_SCRIPT}" "${joblog}" > "${joblog}.tmp"
+
+    if [[ -s "${joblog}.tmp" ]]; then
+        mv "${joblog}.tmp" "${joblog}"
+    else
+        rm -f "${joblog}" "${joblog}.tmp"
+    fi
 }

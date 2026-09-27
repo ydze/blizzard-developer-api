@@ -67,7 +67,10 @@ save_page() {
     local gamemode=$3
     local json_file="${TMP_DIR}/${locale}_${gamemode}_page_${page}.json"
 
-    get_page "${locale}" "${page}" "${gamemode}" | jq '.cards' > "${json_file}.part"
+    if ! get_page "${locale}" "${page}" "${gamemode}" | jq '.cards' > "${json_file}.part"; then
+        echo "Failed to retrieve page ${page} for gamemode ${gamemode}, locale ${locale}..." >&2
+        return 1
+    fi
     mv "${json_file}.part" "${json_file}"
 }
 export -f save_page
@@ -120,11 +123,6 @@ for LOCALE in "${LOCALES[@]}"; do
 
         wait "${PARALLEL_PID}"
         echo
-
-        FAILED=$(ls "${TMP_DIR}"/${LOCALE}_${GAMEMODE}_page_*.json.part 2>/dev/null | wc -l || true)
-        if [[ "${FAILED}" -gt 0 ]]; then
-            echo -e "${YELLOW}Failed to retrieve ${FAILED} pages.${RESET}\n"
-        fi
     done
 
     OUTPUT_DIR="${PROJECT_DIR}/data/hearthstone/${LOCALE}" && mkdir -p "${OUTPUT_DIR}"
