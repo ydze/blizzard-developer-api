@@ -26,11 +26,12 @@ AUTH_CMD=(
     --silent --fail
     --retry 10 --retry-delay 6 --retry-connrefused
     --data "grant_type=client_credentials"
-    --user "${CLIENT_ID}:${CLIENT_SECRET}"
     "${AUTH_URL}"
 )
 
-AUTH_RESPONSE=$("${AUTH_CMD[@]}")
+AUTH_CREDS=$(printf '%s:%s' "${CLIENT_ID}" "${CLIENT_SECRET}" | base64 -w0)
+
+AUTH_RESPONSE=$("${AUTH_CMD[@]}" --header @<(printf 'Authorization: Basic %s' "${AUTH_CREDS}"))
 
 ACCESS_TOKEN=$(echo "${AUTH_RESPONSE}" | jq --raw-output '.access_token')
 
