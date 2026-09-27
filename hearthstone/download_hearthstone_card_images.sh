@@ -2,8 +2,7 @@
 
 set -euo pipefail
 
-FAILED_URLS_FILE=$(mktemp)
-TEMP_FILES=("${FAILED_URLS_FILE}")
+TEMP_FILES=()
 
 trap '[[ ${#TEMP_FILES[@]} -gt 0 ]] && rm -f "${TEMP_FILES[@]}"' EXIT INT TERM
 
@@ -51,13 +50,11 @@ save_image() {
     )
 
     if ! "${dl_cmd[@]}"; then
-        echo "${url}" >> "${FAILED_URLS_FILE}"
+        rm -f "${saved_file}"
         return 1
     fi
 }
 export -f save_image
-
-export FAILED_URLS_FILE
 
 # ─── Hearthstone card images download loop ────────────────────────────────────
 for LOCALE in "${LOCALES[@]}"; do
@@ -67,11 +64,16 @@ for LOCALE in "${LOCALES[@]}"; do
 
     if [[ "${RETRY_FAILED}" == true ]]; then
         if [[ ! -f "${JOBLOG}" ]]; then
-            echo -e "${YELLOW}File not found: "${JOBLOG}" for locale ${LOCALE}, skipping...${RESET}"
+            echo -e "${YELLOW}Found no failed downloads for locale ${LOCALE}, skipping...${RESET}"
             continue
         fi
 
-        IMAGE_COUNT=$(tail -n +2 "${JOBLOG}" 2>/dev/null | wc -l)
+        JOB_COUNT=$(tail -n +2 "${JOBLOG}" 2>/dev/null | wc -l)
+        DONE_COUNT=$(ls "${OUTPUT_DIR}" 2>/dev/null | wc -l)
+        IMAGE_COUNT=$(( DONE_COUNT + JOB_COUNT ))
+
+        (( JOB_COUNT == 1 )) && NOUN="download" || NOUN="downloads"
+        echo "Found ${JOB_COUNT} failed ${NOUN} for locale ${LOCALE}, retrying..."
 
         parallel --joblog "${JOBLOG}" -j ${PARALLEL_JOBS} --retry-failed &
     else
@@ -112,12 +114,11 @@ for LOCALE in "${LOCALES[@]}"; do
     done
 
     wait "${PARALLEL_PID}" || true
-    echo
 
     compact_joblog "${JOBLOG}"
 
     DOWNLOADED=$(ls "${OUTPUT_DIR}" 2>/dev/null | wc -l)
     FAILED=$(( IMAGE_COUNT - DOWNLOADED ))
 
-    echo -e "\n${GREEN}Images: ${DOWNLOADED} downloaded, ${FAILED} failed.${RESET}"
+    echo -e "\n${GREEN}Images: ${DOWNLOADED} downloaded, ${FAILED} failed.${RESET}\n"
 done

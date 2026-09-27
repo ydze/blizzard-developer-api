@@ -40,7 +40,11 @@ get_metadata() {
         "${API_BASE}/hearthstone/metadata?locale=${locale}"
     )
 
-    "${get_cmd[@]}" --header @<(printf 'Authorization: Bearer %s' "${ACCESS_TOKEN}") | jq '.' > "${saved_file}.part"
+    if ! "${get_cmd[@]}" --header @<(printf 'Authorization: Bearer %s' "${ACCESS_TOKEN}") | jq '.' > "${saved_file}.part"; then
+        echo "Failed to download metadata for locale ${locale}" >&2
+        rm -f "${saved_file}.part"
+        return 1
+    fi
     mv "${saved_file}.part" "${saved_file}"
 
     echo -e "${GREEN}Saved ${saved_file}.${RESET}"

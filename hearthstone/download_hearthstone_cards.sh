@@ -68,7 +68,7 @@ save_page() {
     local json_file="${TMP_DIR}/${locale}_${gamemode}_page_${page}.json"
 
     if ! get_page "${locale}" "${page}" "${gamemode}" | jq '.cards' > "${json_file}.part"; then
-        echo "Failed to retrieve page ${page} for gamemode ${gamemode}, locale ${locale}..." >&2
+        echo -e "\nFailed to retrieve page ${page} for gamemode ${gamemode}, locale ${locale}..." >&2
         return 1
     fi
     mv "${json_file}.part" "${json_file}"
@@ -121,8 +121,8 @@ for LOCALE in "${LOCALES[@]}"; do
             progress "${COMPLETED}" "${PAGE_COUNT}"
         done
 
-        wait "${PARALLEL_PID}"
         echo
+        wait "${PARALLEL_PID}" || true
     done
 
     OUTPUT_DIR="${PROJECT_DIR}/data/hearthstone/${LOCALE}" && mkdir -p "${OUTPUT_DIR}"
@@ -132,5 +132,5 @@ for LOCALE in "${LOCALES[@]}"; do
     jq --slurp 'add' "${TMP_DIR}"/${LOCALE}_*_page_*.json > "${SAVED_FILE}"
 
     CARD_COUNT=$(jq 'length' "${SAVED_FILE}")
-    echo -e "${GREEN}Saved ${SAVED_FILE} (${CARD_COUNT} cards).${RESET}\n"
+    echo -e "\n${GREEN}Saved ${SAVED_FILE} (${CARD_COUNT} cards).${RESET}\n"
 done
